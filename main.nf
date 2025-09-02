@@ -45,7 +45,7 @@ workflow {
 		raw_files = thermo_raw_files.concat(bruker_raw_folders)
 
 		// conversion into mzML files and add all mzMLs together
-		converted_mzmls = convert_raws_to_mzml(thermo_raw_files, bruker_raw_folders)
+		converted_mzmls = convert_raws_to_mzml(thermo_raw_files, bruker_raw_folders, params.file_conversion__thermo_raw_conversion_mem, params.file_conversion__bruker_raw_conversion_cpu, params.file_conversion__bruker_raw_conversion_mem)
 		mzmls = converted_mzmls.concat(input_mzml_files)
 	
 		// Retrieve mzML Metrics
