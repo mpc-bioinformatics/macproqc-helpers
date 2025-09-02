@@ -13,9 +13,13 @@ workflow convert_raws_to_mzml {
     take:
         thermo_raw_files
         bruker_raw_folders
+        thermo_conversion_mem
+        bruker_conversion_cpu
+        bruker_conversion_mem
+        
     main:
-        thermo_mzmls = convert_thermo_raw_files(thermo_raw_files)
-        bruker_mzmls = convert_bruker_raw_folders(bruker_raw_folders)
+        thermo_mzmls = convert_thermo_raw_files(thermo_raw_files, thermo_conversion_mem)
+        bruker_mzmls = convert_bruker_raw_folders(bruker_raw_folders, bruker_conversion_cpu, bruker_conversion_mem)
         mzmls = thermo_mzmls.concat(bruker_mzmls)
     emit:
         mzmls
@@ -35,10 +39,11 @@ process convert_thermo_raw_files {
     // * https://github.com/compomics/ThermoRawFileParser/issues/23
     // * https://github.com/compomics/ThermoRawFileParser/issues/95
     cpus 2
-    memory params.file_conversion__thermo_raw_conversion_mem
+    memory "${thermo_conversion_mem}"
 
     input:
     path raw_file
+    val thermo_conversion_mem
 
     output:
     path "${raw_file.baseName}.mzML"
@@ -59,20 +64,22 @@ process convert_bruker_raw_folders {
     label 'tdf2mzml_image'
     errorStrategy 'ignore'
     
-    cpus params.file_conversion__bruker_raw_conversion_cpu
-    memory params.file_conversion__bruker_raw_conversion_mem
+    cpus "${bruker_conversion_cpu}"
+    memory "${bruker_conversion_mem}"
 
     input:
     path raw_folder
+    val bruker_conversion_cpu
+    val bruker_conversion_mem
     
     output:
     path "${raw_folder.baseName}.mzML"
 
     script:
     """
-    export MKL_NUM_THREADS=${params.file_conversion__bruker_raw_conversion_cpu}
-    export NUMEXPR_NUM_THREADS=${params.file_conversion__bruker_raw_conversion_cpu}
-    export OMP_NUM_THREADS=${params.file_conversion__bruker_raw_conversion_cpu}
+    export MKL_NUM_THREADS=${bruker_conversion_cpu}
+    export NUMEXPR_NUM_THREADS=${bruker_conversion_cpu}
+    export OMP_NUM_THREADS=${bruker_conversion_cpu}
 
     tdf2mzml -i ${raw_folder} --compression "zlib" --ms1_type centroid -o ${raw_folder.baseName}.mzML
     """
