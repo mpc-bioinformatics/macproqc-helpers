@@ -124,6 +124,21 @@
         "ms_run_metrics__thermo_headers": {
           "type": "string",
           "description": "Set if you want to extract specific headers from Thermo measurements, otherwise the default is used."
+        },
+        "base_peak_tic_up_to": {
+          "type": "integer",
+          "default": 105,
+          "description": "Retrieve the Basepeak Intensity Max and the Total Ion Current from minute 0 up to the given number in minutes. Defaults to 105 (minutes)."
+        },
+        "filter_threshold": {
+          "type": "number",
+          "default": 1e-5,
+          "description": "Threshold for the MS1 peaks, to be included in the output file. Defaults to 0.00001 (0.001%) of the highest overall MS1 peak. Values lower will be disregarded."
+        },
+        "report_up_to_charge": {
+          "type": "integer",
+          "default": 5,
+          "description": "Upper limit of range to be reported in a csv table for the charge, defaults to 5."
         }
       }
     },

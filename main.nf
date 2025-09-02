@@ -44,12 +44,24 @@ workflow {
 		
 		raw_files = thermo_raw_files.concat(bruker_raw_folders)
 
-		// conversion into mzML files and add all mzMLs together
-		converted_mzmls = convert_raws_to_mzml(thermo_raw_files, bruker_raw_folders, params.file_conversion__thermo_raw_conversion_mem, params.file_conversion__bruker_raw_conversion_cpu, params.file_conversion__bruker_raw_conversion_mem)
+		// conversion into mzML files
+		converted_mzmls = convert_raws_to_mzml(
+			thermo_raw_files, 
+			bruker_raw_folders, 
+			params.file_conversion__thermo_raw_conversion_mem, 
+			params.file_conversion__bruker_raw_conversion_cpu, 
+			params.file_conversion__bruker_raw_conversion_mem
+		)
 		mzmls = converted_mzmls.concat(input_mzml_files)
 	
-		// Retrieve mzML Metrics
-		mzml_metrics = get_mzml_infos(mzmls, mcquac_params_file, params.ms_run_metrics__mzml_mem)
+		// retrieve mzML Metrics
+		mzml_metrics = get_mzml_infos(
+			mzmls,
+			params.ms_run_metrics__mzml_mem,
+			params.base_peak_tic_up_to,
+			params.filter_threshold,
+			params.report_up_to_charge
+		)
 
 		// Identify spectra using Comet
 		comet_ids = identification_with_comet(mzmls, fasta_file, mcquac_params_file, false, main_outdir)
