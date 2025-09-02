@@ -1,21 +1,8 @@
 #!/usr/bin/env nextflow
 
-/**
- * Workflows and processes file conversions, e.g. from vendor file formats to open standards like mzML 
- */
-
-nextflow.enable.dsl=2
-
-// Memory for the Thermo Raw File Parser, used 24 GB for a Raw file with 257409 MS scans 
-// and 4GB for a Raw file with 11352 MS scans (measured with `/usr/bin/time -v ...`). 10 GB seems legit for most cases.
-// Based on max virtual memory 
-params.file_conversion__thermo_raw_conversion_mem = "10 GB"
-// Memory for the tdf2mzml, used 0.39 GB for a Raw file with 298748 MS scans 
-// and 0.14GB for a Raw file with 35023 MS scans (measured with `/usr/bin/time -v ...`). 5 GB seems more then enough.
-// Based on max virtual memory 
-params.file_conversion__bruker_raw_conversion_mem = "5 GB"
-// Number of threads for the bruker raw file conversion
-params.file_conversion__bruker_raw_conversion_cpu = 4
+//
+// Workflows and processes file conversions, e.g. from vendor file formats to open standards like mzML 
+//
 
 /**
  * Convert raw files (Thermo Fisher .raw-files and Bruker tdf-files) to mzML files
@@ -42,8 +29,8 @@ workflow convert_raws_to_mzml {
  */
 process convert_thermo_raw_files {
     label 'thermorawfileparser_image'
-    
     errorStrategy 'ignore'
+
     // Thermo Raw File parser is currently limited to 2 CPUs, see:
     // * https://github.com/compomics/ThermoRawFileParser/issues/23
     // * https://github.com/compomics/ThermoRawFileParser/issues/95
@@ -56,6 +43,7 @@ process convert_thermo_raw_files {
     output:
     path "${raw_file.baseName}.mzML"
 
+    script:
     """
     thermorawfileparser --format=2 --output_file=${raw_file.baseName}.mzML --input=${raw_file}
     """
@@ -68,8 +56,7 @@ process convert_thermo_raw_files {
  * @return mzML file
  */
 process convert_bruker_raw_folders {
-    container 'mfreitas/tdf2mzml'
-    containerOptions { "-v ${raw_folder.getParent()}:/data" }
+    label 'tdf2mzml_image'
     errorStrategy 'ignore'
     
     cpus params.file_conversion__bruker_raw_conversion_cpu
@@ -81,10 +68,12 @@ process convert_bruker_raw_folders {
     output:
     path "${raw_folder.baseName}.mzML"
 
+    script:
     """
     export MKL_NUM_THREADS=${params.file_conversion__bruker_raw_conversion_cpu}
     export NUMEXPR_NUM_THREADS=${params.file_conversion__bruker_raw_conversion_cpu}
     export OMP_NUM_THREADS=${params.file_conversion__bruker_raw_conversion_cpu}
-    tdf2mzml.py -i ${raw_folder} -o ${raw_folder.baseName}.mzML --ms1_type centroid
+
+    tdf2mzml -i ${raw_folder} --compression "zlib" --ms1_type centroid -o ${raw_folder.baseName}.mzML
     """
 }
