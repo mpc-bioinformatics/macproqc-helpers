@@ -142,9 +142,15 @@ workflow {
 		}
 	 
 		// Run Feature Finding
-		feature_metrics = get_feature_metrics(mzmls, pia_report_psm_mztabs, 
+		feature_metrics = get_feature_metrics(
+			mzmls,
+			pia_report_psm_mztabs, 
 			params.identification__peptide_mass_tolerance_upper,
-			params.identification__peptide_mass_units
+			params.identification__peptide_mass_units,
+			params.feature_detection__min_charge,
+			params.feature_detection__max_charge,
+			params.feature_detection__openms_threads,
+			params.feature_detection__openms_memory
 		)
 
 		// Get Thermo/Bruker specific information from raw_spectra

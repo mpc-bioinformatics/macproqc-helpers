@@ -1,22 +1,11 @@
 #!/usr/bin/env nextflow
 
-/**
- * Workflows for feature detection
- */
-
-
-nextflow.enable.dsl=2
-
-params.openms_threads = 8   // hardcoded for now, number of threads used by OpenMS
-params.min_charge = 2       // hardcoded for now
-params.max_charge = 5       // hardcoded for now
+// 
+// Workflows for the feature detection
+// 
 
 /**
  * Extracts features from peak picked MS1 spectra
- * 
- * @param mzmls Channel of mzML files
- * @param mztabfiles Channel of mzTab files
- * @param feature_finder_params Channel of feature finder parameters
  */
 workflow get_feature_metrics {
     take:
@@ -24,13 +13,25 @@ workflow get_feature_metrics {
         mztabfiles
         precursor_tolerance
         precursor_tolerance_unit
+        min_charge
+        max_charge
+        openms_threads
+        openms_memory
     
     main:
         // filter out empty spectra and chromatograms
-        filtered_mzml = filter_mzml(mzmls)
+        filtered_mzml = filter_mzml(mzmls, openms_threads, openms_memory)
 
         // Get features with OpenMS feature finder
-        feature_xml = run_feature_finder(filtered_mzml, precursor_tolerance, precursor_tolerance_unit)
+        feature_xml = run_feature_finder(
+            filtered_mzml,
+            precursor_tolerance,
+            precursor_tolerance_unit,
+            min_charge,
+            max_charge,
+            openms_threads,
+            openms_memory,
+        )
 
         // map identification to features (using mzTab and featureXML)
         runbase_to_featurexml_and_mztab = 
@@ -42,10 +43,10 @@ workflow get_feature_metrics {
                 },
                 by: 0
             )
-        feature_xml_identified = map_features_to_idents(runbase_to_featurexml_and_mztab)
+        feature_xml_identified = map_features_to_idents(runbase_to_featurexml_and_mztab, openms_threads, openms_memory)
 
         // Retrieve the actual data and report a HDF5 file
-        feature_metrics = get_metrics_from_featurexml(feature_xml_identified)
+        feature_metrics = get_metrics_from_featurexml(feature_xml_identified, max_charge)
         
     emit:
          feature_metrics
@@ -54,12 +55,17 @@ workflow get_feature_metrics {
 process run_feature_finder {
     label 'mcquac_image'
 
-    cpus { params.openms_threads }
+    cpus { openms_threads }
+    memory { openms_memory }
 
     input:
     path mzml
     val precursor_tolerance
     val precursor_tolerance_unit
+    val min_charge
+    val max_charge
+    val openms_threads
+    val openms_memory
 
     output:
     path "${mzml.baseName}.featureXML"
@@ -78,9 +84,9 @@ process run_feature_finder {
         tol_unit="ppm"
     fi
 
-    FeatureFinderMultiplex -in ${mzml} -out ${mzml.baseName}.featureXML -threads ${params.openms_threads} \
+    FeatureFinderMultiplex -in ${mzml} -out ${mzml.baseName}.featureXML -threads ${openms_threads} \
         -algorithm:labels "" \
-        -algorithm:charge "${params.min_charge}:${params.max_charge}" \
+        -algorithm:charge "${min_charge}:${max_charge}" \
         -algorithm:spectrum_type centroid \
         -algorithm:mz_tolerance \${tol} \
         -algorithm:mz_unit \${tol_unit}
@@ -90,17 +96,22 @@ process run_feature_finder {
 process map_features_to_idents {
     label 'mcquac_image'
 
-    cpus { params.openms_threads }
+    cpus { openms_threads }
+    memory { openms_memory }
 
     input:
     tuple val(runBaseName), path(featurexml), path(ident)
+    val openms_threads
+    val openms_memory
 
     output:
     path "${featurexml.baseName}_with_idents.featureXML"
 
+    script:
     """
     convert_mztab_to_idxml.py -mztab ${ident} -out_idxml ${ident.baseName}.idXML
-    IDMapper -in ${featurexml} -out ${featurexml.baseName}_with_idents.featureXML -threads ${params.openms_threads} \
+
+    IDMapper -in ${featurexml} -out ${featurexml.baseName}_with_idents.featureXML -threads ${openms_threads} \
         -id ${ident.baseName}.idXML 
     """
 }
@@ -108,15 +119,20 @@ process map_features_to_idents {
 process get_metrics_from_featurexml {
     label 'mcquac_image'
 
+    cpus 1
+    memory "4.GB"
+
     input:
     path featurexml
+    val max_charge
 
     output:
     path "${featurexml.name.take(featurexml.name.lastIndexOf('.filtered_with_idents.featureXML'))}-features.hdf5"
 
+    script:
     """
     extract_from_featurexml.py -featurexml ${featurexml} \
-        -report_up_to_charge ${params.max_charge} \
+        -report_up_to_charge ${max_charge} \
         -out_hdf5 ${featurexml.name.take(featurexml.name.lastIndexOf('.filtered_with_idents.featureXML'))}-features.hdf5 
     """
 }
@@ -128,17 +144,21 @@ process get_metrics_from_featurexml {
 process filter_mzml {
     label 'mcquac_image'
 
-    cpus { params.openms_threads }
+    cpus { openms_threads }
+    memory { openms_memory }
 
     input:
-    path(mzml)
+    path mzml
+    val openms_threads
+    val openms_memory
 
     output:
     path "${mzml.baseName}.filtered.mzML"
 
+    script:
     """
     # Filter mzML for MS1 spectra
-    FileFilter -in ${mzml} -out ${mzml.baseName}.filtered.mzML -threads ${params.openms_threads} \
+    FileFilter -in ${mzml} -out ${mzml.baseName}.filtered.mzML -threads ${openms_threads} \
         -peak_options:remove_chromatograms \
         -peak_options:remove_empty \
         -peak_options:sort_peaks \
