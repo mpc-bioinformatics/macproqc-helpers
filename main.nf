@@ -28,7 +28,21 @@ workflow {
 	if (params.visualize_only) {
 		// only visualization
 		list_hdf5_files = file(params.main_input_folder + '/*.hdf5')
-		visualization(list_hdf5_files, params.main_outdir, params.rt_unit, params.output_column_order, params.spikein_columns, params.output_table_type, params.search_spike_ins, params.height_barplots, params.width_barplots, params.height_pca, params.width_pca, params.height_ionmaps, params.width_ionmaps)
+		visualization(
+			list_hdf5_files,
+			params.main_outdir,
+			params.rt_unit,
+			params.output_column_order,
+			params.spikein_columns,
+			params.output_table_type,
+			params.search_spike_ins,
+			params.height_barplots,
+			params.width_barplots,
+			params.height_pca,
+			params.width_pca,
+			params.height_ionmaps,
+			params.width_ionmaps
+		)
 	} else {
 		// complete workflow
 
@@ -37,8 +51,8 @@ workflow {
 		fasta_file = Channel.fromPath(params.main_fasta_file).first()
 
 		// Retrieve input files
-		thermo_raw_files = Channel.fromPath(params.main_raw_spectra_folder + "/*.raw")
-		bruker_raw_folders = Channel.fromPath(params.main_raw_spectra_folder + "/*.d", type: 'dir')
+		thermo_raw_files = Channel.fromPath(params.main_input_folder + "/*.raw")
+		bruker_raw_folders = Channel.fromPath(params.main_input_folder + "/*.d", type: 'dir')
 		input_mzml_files = Channel.fromPath(params.main_input_folder + "/*.mzML")
 		
 		raw_files = thermo_raw_files.concat(bruker_raw_folders)
@@ -179,9 +193,22 @@ workflow {
 		combined_metrics = combine_metric_hdf5(hdf5s_per_run, main_outdir)
 
 		// Visualize the results (and move them to the results folder)
-		visualization(combined_metrics, params.main_outdir, params.rt_unit, params.output_column_order, params.spikein_columns, params.output_table_type, params.search_spike_ins, params.height_barplots, params.width_barplots, params.height_pca, params.width_pca, params.height_ionmaps, params.width_ionmaps)
+		visualization(
+			combined_metrics,
+			params.main_outdir,
+			params.rt_unit,
+			params.output_column_order,
+			params.spikein_columns,
+			params.output_table_type,
+			params.search_spike_ins,
+			params.height_barplots,
+			params.width_barplots,
+			params.height_pca,
+			params.width_pca,
+			params.height_ionmaps,
+			params.width_ionmaps
+		)
 
 		output_processing_success(raw_files.concat(input_mzml_files), hdf5s_per_run.toList().transpose().first().flatten())
-
 	}
 }

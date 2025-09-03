@@ -11,10 +11,12 @@
       "description": "Main parameters for McQuaC",
       "default": "",
       "properties": {
-        "main_raw_spectra_folder": {
+        "main_input_folder": {
           "type": "string",
           "format": "directory-path",
-          "description": "Folder containing the spectra files to be analysed (Thermo raw, Bruker .d or mzML). All applicable files in this folder will be processed."
+          "description": "Folder containing the spectra files to be analysed (Thermo raw, Bruker .d or mzML), or hdf5 files if running only the visualization. All applicable files in this folder will be processed.",
+          "exists": true,
+          "default": "./"
         },
         "main_outdir": {
           "type": "string",
@@ -31,7 +33,7 @@
           "fa_icon": "far fa-file-code"
         }
       },
-      "required": ["main_raw_spectra_folder", "main_fasta_file"]
+      "required": ["main_input_folder", "main_fasta_file"]
     },
     "visualization_parameters": {
       "title": "Visualization parameters",
@@ -39,7 +41,11 @@
       "description": "Parameters for visualization script",
       "default": "",
       "properties": {
-        "RT_unit": {
+        "visualize_only": {
+          "type": "boolean",
+          "description": "If true, only the visualization part of teh workflow will be executed."
+        },
+        "rt_unit": {
           "type": "string",
           "description": "Unit of the retention time, either sec for seconds or min for minutes.",
           "default": "sec",
@@ -61,6 +67,36 @@
           "default": "csv",
           "format": "file-path",
           "enum": ["csv", "xlsx"]
+        },
+        "height_barplots": {
+          "type": "integer",
+          "default": 700,
+          "description": "Height of the barplots in pixels"
+        },
+        "width_barplots": {
+          "type": "integer",
+          "default": 0,
+          "description": "Width of the barplots in pixels, 0 = flexible width"
+        },
+        "height_pca": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Height of the PCA plot in pixels"
+        },
+        "width_pca": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Width of the PCA plot in pixels"
+        },
+        "height_ionmaps": {
+          "type": "integer",
+          "default": 10,
+          "description": "Height of the ion maps in inches"
+        },
+        "width_ionmaps": {
+          "type": "integer",
+          "default": 10,
+          "description": "Width of the ion maps in inches"
         }
       }
     },
