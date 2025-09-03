@@ -174,7 +174,8 @@ workflow {
 			params.ms_run_metrics__thermo_headers,
 			bruker_raw_folders,
 			params.ms_run_metrics__bruker_raw_mem,
-			params.ms_run_metrics__bruker_headers
+			params.ms_run_metrics__bruker_headers,
+			params.ms_run_metrics__bruker_calibrants
 		)
 
 		// Concatenate to one merged metric CSV

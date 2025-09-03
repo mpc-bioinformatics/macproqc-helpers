@@ -150,6 +150,10 @@
           "type": "string",
           "description": "Set if you want to extract specific headers from Bruker measurements, otherwise the default is used."
         },
+        "ms_run_metrics__bruker_calibrants": {
+          "type": "string",
+          "description": "Set if you want to extract specific calibrants in Bruker raw measurements, otherwise the default is used (622.0290 m/z, 922.009798 m/z and 1221.990637 m/z with a 10 m/z and 0.1 1/k0 tolerance). Have a look into the corresponding python script for the headers."
+        },
         "ms_run_metrics__thermo_headers": {
           "type": "string",
           "description": "Set if you want to extract specific headers from Thermo measurements, otherwise the default is used."
