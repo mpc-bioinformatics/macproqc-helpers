@@ -154,8 +154,14 @@ workflow {
 		)
 
 		// Get Thermo/Bruker specific information from raw_spectra
-		custom_header_infos = get_headers(thermo_raw_files, params.ms_run_metrics__thermo_raw_mem, params.ms_run_metrics__thermo_headers,
-			bruker_raw_folders, params.ms_run_metrics__bruker_raw_mem, params.ms_run_metrics__bruker_headers)
+		custom_header_infos = get_headers(
+			thermo_raw_files,
+			params.ms_run_metrics__thermo_raw_mem,
+			params.ms_run_metrics__thermo_headers,
+			bruker_raw_folders,
+			params.ms_run_metrics__bruker_raw_mem,
+			params.ms_run_metrics__bruker_headers
+		)
 
 		// Concatenate to one merged metric CSV
 		hdf5s_per_run = mzml_metrics.map{file -> tuple(file.name.take(file.name.lastIndexOf('-mzml_info.hdf5')), file)}

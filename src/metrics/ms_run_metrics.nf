@@ -66,6 +66,7 @@ workflow get_mzml_infos {
  */
 process extract_headers_from_thermo_raw_files {
     label 'mcquac_image'
+    
     cpus 1
     memory "${memory_limit}"
 
