@@ -1,0 +1,478 @@
+<h1>pipeline parameters</h1>
+<h2>Main parameters</h2>
+<p>Main parameters for McQuaC</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Type</th>
+<th>Default</th>
+<th>Required</th>
+<th>Hidden</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>main_input_folder</code></td>
+<td>Folder containing the spectra files to be analysed (Thermo raw, Bruker .d or mzML), or hdf5 files if running only the visualization. All applicable files in this folder will be processed.</td>
+<td><code>string</code></td>
+<td>./</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr>
+<td><code>main_outdir</code></td>
+<td>Output-Directory of the result files</td>
+<td><code>string</code></td>
+<td>./results</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>main_fasta_file</code></td>
+<td>The FASTA file used for identification</td>
+<td><code>string</code></td>
+<td></td>
+<td>True</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2>Visualization parameters</h2>
+<p>Parameters for visualization script</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Type</th>
+<th>Default</th>
+<th>Required</th>
+<th>Hidden</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>visualize_only</code></td>
+<td>If true, only the visualization part of teh workflow will be executed.</td>
+<td><code>boolean</code></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>rt_unit</code></td>
+<td>Unit of the retention time, either sec for seconds or min for minutes.</td>
+<td><code>string</code></td>
+<td>sec</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>output_column_order</code></td>
+<td>Order of columns in the output table</td>
+<td><code>string</code></td>
+<td>''</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>spikein_columns</code></td>
+<td>Columns of the spike-in dataframes that should end up in the result table</td>
+<td><code>string</code></td>
+<td>Maximum_Intensity,RT_at_Maximum_Intensity,PSMs,Delta_to_expected_RT</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>output_table_type</code></td>
+<td>Type of the output table, either csv or xlsx</td>
+<td><code>string</code></td>
+<td>csv</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>height_barplots</code></td>
+<td>Height of the barplots in pixels</td>
+<td><code>integer</code></td>
+<td>700</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>width_barplots</code></td>
+<td>Width of the barplots in pixels, 0 = flexible width</td>
+<td><code>integer</code></td>
+<td>0</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>height_pca</code></td>
+<td>Height of the PCA plot in pixels</td>
+<td><code>integer</code></td>
+<td>1000</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>width_pca</code></td>
+<td>Width of the PCA plot in pixels</td>
+<td><code>integer</code></td>
+<td>1000</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>height_ionmaps</code></td>
+<td>Height of the ion maps in inches</td>
+<td><code>integer</code></td>
+<td>10</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>width_ionmaps</code></td>
+<td>Width of the ion maps in inches</td>
+<td><code>integer</code></td>
+<td>10</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2>Spike in parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Type</th>
+<th>Default</th>
+<th>Required</th>
+<th>Hidden</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spike_ins_table</code></td>
+<td>The information about spike-ins</td>
+<td><code>string</code></td>
+<td>${projectDir}/example_configurations/spike_ins.csv</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>search_spike_ins</code></td>
+<td>Parameter to check if a specific identification and feature extraction for spike in peptides / proteins should be performed. NOTE: FASTA has to contain the spike ins too!</td>
+<td><code>boolean</code></td>
+<td>True</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>search_labelled_spikeins</code></td>
+<td>Perform a special identification and look for labelled peptides</td>
+<td><code>boolean</code></td>
+<td>True</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2>Metric extraction parameters</h2>
+<p>Parameters used for the extraction of metrics</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Type</th>
+<th>Default</th>
+<th>Required</th>
+<th>Hidden</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ms_run_metrics__bruker_raw_mem</code></td>
+<td>Memory used for the extraction of metrics from Bruker headers</td>
+<td><code>string</code></td>
+<td>1.GB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ms_run_metrics__thermo_raw_mem</code></td>
+<td>Memory used for the extraction of metrics from Thermo headers</td>
+<td><code>string</code></td>
+<td>10.GB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ms_run_metrics__mzml_mem</code></td>
+<td>Memory used for the extraction of metrics from mzML files</td>
+<td><code>string</code></td>
+<td>10.GB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ms_run_metrics__bruker_headers</code></td>
+<td>Set if you want to extract specific headers from Bruker measurements, otherwise the default is used.</td>
+<td><code>string</code></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ms_run_metrics__bruker_calibrants</code></td>
+<td>Set if you want to extract specific calibrants in Bruker raw measurements, otherwise the default is used (622.0290 m/z, 922.009798 m/z and 1221.990637 m/z with a 10 m/z and 0.1 1/k0 tolerance). Have a look into the corresponding python script for the headers.</td>
+<td><code>string</code></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ms_run_metrics__thermo_headers</code></td>
+<td>Set if you want to extract specific headers from Thermo measurements, otherwise the default is used.</td>
+<td><code>string</code></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>base_peak_tic_up_to</code></td>
+<td>Retrieve the Basepeak Intensity Max and the Total Ion Current from minute 0 up to the given number in minutes. Defaults to 105 (minutes).</td>
+<td><code>integer</code></td>
+<td>105</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>filter_threshold</code></td>
+<td>Threshold for the MS1 peaks, to be included in the output file. Defaults to 0.00001 (0.001%) of the highest overall MS1 peak. Values lower will be disregarded.</td>
+<td><code>number</code></td>
+<td>1e-05</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>report_up_to_charge</code></td>
+<td>Upper limit of range to be reported in a csv table for the charge, defaults to 5.</td>
+<td><code>integer</code></td>
+<td>5</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>max_parallel_xic_extractors_factor</code></td>
+<td>Factor for the number of maximum forks for the XIC extractor processes, calculated by dividing the number of available processors by this number. In fact, the number of required CPUs per task is set to the given value.</td>
+<td><code>integer</code></td>
+<td>2</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>feature_detection__openms_threads</code></td>
+<td>Allowed number of threads / CPUs for the OpenMS feature detection</td>
+<td><code>integer</code></td>
+<td>8</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>feature_detection__openms_memory</code></td>
+<td>Allowed memory for the OpenMS feature detection tasks</td>
+<td><code>string</code></td>
+<td>8.GB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>feature_detection__min_charge</code></td>
+<td>Minimum charge for the feature detection</td>
+<td><code>integer</code></td>
+<td>2</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>feature_detection__max_charge</code></td>
+<td>Maximum charge for the feature detection</td>
+<td><code>integer</code></td>
+<td>5</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2>Conversion parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Type</th>
+<th>Default</th>
+<th>Required</th>
+<th>Hidden</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file_conversion__bruker_raw_conversion_mem</code></td>
+<td>Memory for the tdf2mzml to convert .d into mzML</td>
+<td><code>string</code></td>
+<td>5.GB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>file_conversion__bruker_raw_conversion_cpu</code></td>
+<td>Number of CPUs / threads for the bruker raw file conversion</td>
+<td><code>integer</code></td>
+<td>4</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>file_conversion__thermo_raw_conversion_mem</code></td>
+<td>Memory for the Thermo Raw File Parser to convert .raw into mzML</td>
+<td><code>string</code></td>
+<td>10.GB</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2>Identification parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Type</th>
+<th>Default</th>
+<th>Required</th>
+<th>Hidden</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>identification__comet_threads</code></td>
+<td>CPUs / threads used for the identification with Comet</td>
+<td><code>integer</code></td>
+<td>8</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__comet_mem</code></td>
+<td>Memory used for the identification with Comet</td>
+<td><code>string</code></td>
+<td>10.GB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__generate_decoys</code></td>
+<td>If true, decoys are generated before starting the spectrum identification. Otherwise, decoys should already be in the FASTA file</td>
+<td><code>boolean</code></td>
+<td>True</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__decoy_method</code></td>
+<td>Applied method for the generation of decoys, either "reverse" or "shuffle"</td>
+<td><code>string</code></td>
+<td>shuffle</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__peptide_mass_tolerance_upper</code></td>
+<td>Comet parameter: peptide_mass_tolerance_upper, upper bound of the precursor mass tolerance</td>
+<td><code>number</code></td>
+<td>5</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__peptide_mass_tolerance_lower</code></td>
+<td>Comet parameter: peptide_mass_tolerance_lower, lower bound of the precursor mass tolerance; USUALLY NEGATIVE TO BE LOWER THAN 0</td>
+<td><code>number</code></td>
+<td>-5</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__peptide_mass_units</code></td>
+<td>Comet parameter: peptide_mass_units, 0=amu, 1=mmu, 2=ppm</td>
+<td><code>integer</code></td>
+<td>2</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__isotope_error</code></td>
+<td>Comet parameter: isotope_error, 0=off, 1=0/1 (C13 error), 2=0/1/2, 3=0/1/2/3, 4=-1/0/1/2/3, 5=-1/0/1</td>
+<td><code>integer</code></td>
+<td>2</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__fragment_bin_tol</code></td>
+<td>Comet parameter: fragment_bin_tol, binning to use on fragment ions</td>
+<td><code>number</code></td>
+<td>0.02</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__fragment_bin_offset</code></td>
+<td>Comet parameter: fragment_bin_offset, offset position to start the binning (0.0 to 1.0)</td>
+<td><code>number</code></td>
+<td>0</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__theoretical_fragment_ions</code></td>
+<td>Comet parameter: theoretical_fragment_ions, 0=use flanking peaks, 1=M peak only</td>
+<td><code>integer</code></td>
+<td>0</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__label_modifications</code></td>
+<td>The labels encoded in Comet static labels. Only used during the special identification for labelled spike ins if "search_labelled_spikeins" is true.</td>
+<td><code>string</code></td>
+<td>add_K_lysine = 8.014199;add_R_arginine = 10.008269</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__pia_threads</code></td>
+<td>Allowed number of CPUs / threads for PIA</td>
+<td><code>integer</code></td>
+<td>8</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>identification__pia_gb_ram</code></td>
+<td>Allowed RAM to be used by PIA, in GB</td>
+<td><code>integer</code></td>
+<td>16</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
