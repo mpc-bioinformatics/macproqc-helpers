@@ -1,21 +1,5 @@
 # Files in this folder
 
-## mcquac_params.json
-
-Central configuration file for McQuaC.
-
-This json dictionary holds central settings for the pipeline, which will be parsed for the spectrum identification as well as for the quantification.
-
-The following parameters are supported:
-
-### comet
-The value is a dict, all key-value pairs of the dict are passed to the comet parameters in the `comet.params`, like `"fragment_bin_tol": 0.02`.
-Some of these parameters (like `peptide_mass_tolerance_upper`) are also used for the feature detection.
-
-### labelled_mods
-The value is a dict, interpreted as the (fixed) modifications (`comet.params` style) which are added to the identification for the "labelled search", if this is activated.
-
-
 ## spike-ins.csv
 
 This is a custom format for this QC-Workflow. Which gives us the information which PSMs in the identification have/can be found to also extract the XICs from.

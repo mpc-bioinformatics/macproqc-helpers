@@ -1,21 +1,9 @@
 #!/usr/bin/env nextflow
 
-/**
- * Workflows and processes for peptide identification using Comet
- */
+// 
+// Workflows and processes for peptide identification using Comet
+// 
 
-
-nextflow.enable.dsl=2
-
-params.identification__comet_threads = 8
-// Memory per comet search
-// ~6 GB for 35000 MS and 35 MB of FASTA
-// Virtual and real memory were roughly equal
-params.identification__comet_mem = "10 GB"
-// If true, decoys are generated and searched against
-params.identification__generate_decoys = true
-// Method to generate decoys. OpenMS allows either: 'reverse' or 'shuffle'
-params.identification__decoy_method = 'shuffle'
 
 /*
  * Identifies peptides in MS/MS spectra using Comet
@@ -29,19 +17,47 @@ workflow identification_with_comet {
     take:
         mzmls
         fasta_file
-        mcquac_params_file
-        search_labelled
+        generate_decoys
+        decoy_method
         fasta_output_folder
+        comet_cpu
+        comet_mem
+        peptide_mass_tolerance_upper
+        peptide_mass_tolerance_lower
+        peptide_mass_units
+        isotope_error
+        fragment_bin_tol
+        fragment_bin_offset
+        theoretical_fragment_ions
+        static_modifications
 
     main:
         comet_params_file = create_fresh_comet_params()
-        adj_comet_params = adjust_comet_params(comet_params_file, mcquac_params_file, search_labelled)
+        adj_comet_params = adjust_comet_params(
+            comet_params_file,
+            comet_cpu,
+            peptide_mass_tolerance_upper,
+            peptide_mass_tolerance_lower,
+            peptide_mass_units,
+            isotope_error,
+            fragment_bin_tol,
+            fragment_bin_offset,
+            theoretical_fragment_ions,
+            static_modifications
+        )
 
-        if (params.identification__generate_decoys) {
-            fasta_file = generate_decoy_database(fasta_file)
+        if (generate_decoys) {
+            fasta_file = generate_decoy_database(fasta_file, decoy_method)
         }
 
-        id_results = comet_search(mzmls, fasta_file, adj_comet_params, fasta_output_folder)
+        id_results = comet_search(
+            mzmls,
+            fasta_file,
+            adj_comet_params,
+            fasta_output_folder,
+            comet_cpu,
+            comet_mem
+        )
     
     emit:
         mzids = id_results.mzids
@@ -52,6 +68,9 @@ workflow identification_with_comet {
  */
 process create_fresh_comet_params {
     label 'comet_image'
+
+    cpus 1
+    memory "1.GB"
 
     output:
     path "comet.params"
@@ -74,10 +93,20 @@ process create_fresh_comet_params {
 process adjust_comet_params {
     label 'mcquac_image'
 
+    cpus 1
+    memory "1.GB"
+
     input:
     path comet_params_file
-    path mcquac_params_file
-    val search_labelled
+    val comet_cpu
+    val peptide_mass_tolerance_upper
+    val peptide_mass_tolerance_lower
+    val peptide_mass_units
+    val isotope_error
+    val fragment_bin_tol
+    val fragment_bin_offset
+    val theoretical_fragment_ions
+    val static_modifications
 
     output:
     path "adjusted.comet.params"
@@ -85,9 +114,17 @@ process adjust_comet_params {
     script:
     """
     # set the number of threads
-    sed -i 's/^num_threads.*/num_threads = ${params.identification__comet_threads} /' ${comet_params_file}
+    sed -i 's/^num_threads.*/num_threads = ${comet_cpu}/' ${comet_params_file}
 
-    adjust_comet_params.py -json_in ${mcquac_params_file} -comet_params ${comet_params_file} -params_out adjusted.comet.params -search_labelled ${search_labelled}
+    adjust_comet_params.py -comet_params ${comet_params_file} -params_out adjusted.comet.params \
+        -peptide_mass_tolerance_upper ${peptide_mass_tolerance_upper} \
+        -peptide_mass_tolerance_lower ${peptide_mass_tolerance_lower} \
+        -peptide_mass_units ${peptide_mass_units} \
+        -isotope_error ${isotope_error} \
+        -fragment_bin_tol ${fragment_bin_tol} \
+        -fragment_bin_offset ${fragment_bin_offset} \
+        -theoretical_fragment_ions ${theoretical_fragment_ions} \
+        -static_modifications "${static_modifications}"
     """
 }
 
@@ -102,15 +139,19 @@ process adjust_comet_params {
 process generate_decoy_database {
     label 'mcquac_image'
 
+    cpus 2
+    memory "8.GB"
+
     input:
     path fasta
+    val decoy_method
 
     output:
     path "${fasta.baseName}_with_decoys.fasta"
 
     script:
     """
-    DecoyDatabase -in ${fasta} -out ${fasta.baseName}_with_decoys.fasta -method ${params.identification__decoy_method} -decoy_string DECOY_
+    DecoyDatabase -in ${fasta} -out ${fasta.baseName}_with_decoys.fasta -method ${decoy_method} -decoy_string DECOY_
     """
 }
 
@@ -126,8 +167,8 @@ process generate_decoy_database {
 process comet_search {
     label 'comet_image'
     
-    cpus { params.identification__comet_threads }
-    memory { params.identification__comet_mem }
+    cpus { comet_cpu }
+    memory { comet_mem }
     
     publishDir "${fasta_output_folder}/", mode: 'copy', pattern: "*.fasta"  // Publish the FASTA file, which was used for the search
 
@@ -136,6 +177,8 @@ process comet_search {
     path input_fasta
     path comet_params_file
     path fasta_output_folder
+    val comet_cpu
+    val comet_mem
 
     output:
     path "${mzml.baseName}.mzid", emit: mzids

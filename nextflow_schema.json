@@ -16,13 +16,6 @@
           "format": "directory-path",
           "description": "Folder containing the spectra files to be analysed (Thermo raw, Bruker .d or mzML). All applicable files in this folder will be processed."
         },
-        "mcquac_params_file": {
-          "type": "string",
-          "description": "The main parameters file for McQuaC",
-          "default": "${projectDir}/example_configurations/mcquac_params.json",
-          "format": "file-path",
-          "mimetype": "application/json"
-        },
         "main_outdir": {
           "type": "string",
           "description": "Output-Directory of the result files",
@@ -164,6 +157,83 @@
           "description": "Memory for the Thermo Raw File Parser to convert .raw into mzML"
         }
       }
+    },
+    "identification_parameters": {
+      "title": "Identification parameters",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "identification__comet_threads": {
+          "type": "integer",
+          "default": 8,
+          "description": "CPUs / threads used for the identification with Comet"
+        },
+        "identification__comet_mem": {
+          "type": "string",
+          "default": "10.GB",
+          "description": "Memory used for the identification with Comet"
+        },
+        "identification__generate_decoys": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, decoys are generated before starting the spectrum identification. Otherwise, decoys should already be in the FASTA file"
+        },
+        "identification__decoy_method": {
+          "type": "string",
+          "description": "Applied method for the generation of decoys, either \"reverse\" or \"shuffle\"",
+          "enum": ["reverse", "shuffle"],
+          "default": "shuffle"
+        },
+        "identification__peptide_mass_tolerance_upper": {
+          "type": "number",
+          "description": "Comet parameter: peptide_mass_tolerance_upper, upper bound of the precursor mass tolerance",
+          "default": 5
+        },
+        "identification__peptide_mass_tolerance_lower": {
+          "type": "number",
+          "default": -5,
+          "description": "Comet parameter: peptide_mass_tolerance_lower, lower bound of the precursor mass tolerance; USUALLY NEGATIVE TO BE LOWER THAN 0"
+        },
+        "identification__peptide_mass_units": {
+          "type": "integer",
+          "default": 2,
+          "description": "Comet parameter: peptide_mass_units, 0=amu, 1=mmu, 2=ppm",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "identification__isotope_error": {
+          "type": "integer",
+          "default": 2,
+          "description": "Comet parameter: isotope_error, 0=off, 1=0/1 (C13 error), 2=0/1/2, 3=0/1/2/3, 4=-1/0/1/2/3, 5=-1/0/1",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "identification__fragment_bin_tol": {
+          "type": "number",
+          "default": 0.02,
+          "description": "Comet parameter: fragment_bin_tol, binning to use on fragment ions"
+        },
+        "identification__fragment_bin_offset": {
+          "type": "number",
+          "default": 0,
+          "description": "Comet parameter: fragment_bin_offset, offset position to start the binning (0.0 to 1.0)",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "identification__theoretical_fragment_ions": {
+          "type": "integer",
+          "default": 0,
+          "description": "Comet parameter: theoretical_fragment_ions, 0=use flanking peaks, 1=M peak only",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "identification__label_modifications": {
+          "type": "string",
+          "default": "add_K_lysine = 8.014199;add_R_arginine = 10.008269",
+          "description": "The labels encoded in Comet static labels. Only used during the special identification for labelled spike ins if \"search_labelled_spikeins\" is true."
+        }
+      }
     }
   },
   "allOf": [
@@ -181,6 +251,9 @@
     },
     {
       "$ref": "#/$defs/conversion_parameters"
+    },
+    {
+      "$ref": "#/$defs/identification_parameters"
     }
   ]
 }

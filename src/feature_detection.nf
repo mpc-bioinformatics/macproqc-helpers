@@ -22,15 +22,15 @@ workflow get_feature_metrics {
     take:
         mzmls  // MS1 should be peak picked for feature-finding
         mztabfiles
-        mcquac_params
+        precursor_tolerance
+        precursor_tolerance_unit
     
     main:
         // filter out empty spectra and chromatograms
         filtered_mzml = filter_mzml(mzmls)
 
         // Get features with OpenMS feature finder
-        feature_finder_params = get_feature_finder_params_from_mcquac_params(mcquac_params)
-        feature_xml = run_feature_finder(filtered_mzml, feature_finder_params)
+        feature_xml = run_feature_finder(filtered_mzml, precursor_tolerance, precursor_tolerance_unit)
 
         // map identification to features (using mzTab and featureXML)
         runbase_to_featurexml_and_mztab = 
@@ -51,21 +51,6 @@ workflow get_feature_metrics {
          feature_metrics
 }
 
-process get_feature_finder_params_from_mcquac_params {
-	label 'mcquac_image'
-
-	input:
-	path mcquac_params
-
-	output:
-	stdout
-
-    script:
-	"""
-    feature_finder_params_from_mcquac_params.py -params ${mcquac_params}
-	"""
-}
-
 process run_feature_finder {
     label 'mcquac_image'
 
@@ -73,17 +58,32 @@ process run_feature_finder {
 
     input:
     path mzml
-    val feature_finder_params
+    val precursor_tolerance
+    val precursor_tolerance_unit
 
     output:
     path "${mzml.baseName}.featureXML"
 
+    script:
     """
+    tol=${precursor_tolerance}
+    tol_unit=${precursor_tolerance_unit}
+
+    if [[ "\${tol_unit}" == "0" ]]; then
+        tol_unit="DA"
+    elif [[ "\${tol_unit}" == "1" ]]; then
+        tol=\$(echo "\${tol} / 1000.0" | bc -l)
+        tol_unit="DA"
+    elif [[ "\${tol_unit}" == "2" ]]; then
+        tol_unit="ppm"
+    fi
+
     FeatureFinderMultiplex -in ${mzml} -out ${mzml.baseName}.featureXML -threads ${params.openms_threads} \
         -algorithm:labels "" \
         -algorithm:charge "${params.min_charge}:${params.max_charge}" \
         -algorithm:spectrum_type centroid \
-        ${feature_finder_params}
+        -algorithm:mz_tolerance \${tol} \
+        -algorithm:mz_unit \${tol_unit}
     """
 }
 

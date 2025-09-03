@@ -35,7 +35,6 @@ workflow {
 		// initialize channels for inputs
 		main_outdir = Channel.fromPath(params.main_outdir).first()
 		fasta_file = Channel.fromPath(params.main_fasta_file).first()
-		mcquac_params_file = Channel.fromPath(params.mcquac_params_file).first()
 
 		// Retrieve input files
 		thermo_raw_files = Channel.fromPath(params.main_raw_spectra_folder + "/*.raw")
@@ -64,7 +63,23 @@ workflow {
 		)
 
 		// Identify spectra using Comet
-		comet_ids = identification_with_comet(mzmls, fasta_file, mcquac_params_file, false, main_outdir)
+		comet_ids = identification_with_comet(
+			mzmls,
+			fasta_file,
+			params.identification__generate_decoys,
+			params.identification__decoy_method,
+			main_outdir,
+			params.identification__comet_threads,
+			params.identification__comet_mem,
+			params.identification__peptide_mass_tolerance_upper,
+			params.identification__peptide_mass_tolerance_lower,
+			params.identification__peptide_mass_units,
+			params.identification__isotope_error,
+			params.identification__fragment_bin_tol,
+			params.identification__fragment_bin_offset,
+			params.identification__theoretical_fragment_ions,
+			""	// no labelling searched here
+		)
 
 		// Execute protein inference and filter by FDR
 		pia_report_files = pia_analysis_full(comet_ids.mzids)
@@ -77,10 +92,26 @@ workflow {
 
 		// search additionally for labelled PSMs
 		if (params.search_labelled_spikeins) {
-		comet_labelled_ids = identification_labelled_with_comet(mzmls, fasta_file, mcquac_params_file, true, main_outdir)
+			comet_labelled_ids = identification_labelled_with_comet(
+				mzmls,
+				fasta_file,
+				params.identification__generate_decoys,
+				params.identification__decoy_method,
+				main_outdir,
+				params.identification__comet_threads,
+				params.identification__comet_mem,
+				params.identification__peptide_mass_tolerance_upper,
+				params.identification__peptide_mass_tolerance_lower,
+				params.identification__peptide_mass_units,
+				params.identification__isotope_error,
+				params.identification__fragment_bin_tol,
+				params.identification__fragment_bin_offset,
+				params.identification__theoretical_fragment_ions,
+				params.identification__label_modifications
+			)
 
-		// set the filter to true to count only FDR filtered labelled PSMs - but the FDR is skewed anyways, as the labelling is set to "static"!
-		labelled_pia_report_files = pia_analysis_psm_only(comet_labelled_ids.mzids, false)
+			// set the filter to true to count only FDR filtered labelled PSMs - but the FDR is skewed anyways, as the labelling is set to "static"!
+			labelled_pia_report_files = pia_analysis_psm_only(comet_labelled_ids.mzids, false)
 		}
 
 		// extract spike-ins information
@@ -95,9 +126,12 @@ workflow {
 
 			spike_in_metrics = retrieve_spike_ins_information(raw_files, psm_results, spike_ins_table)
 		}
-			
+	 
 		// Run Feature Finding
-		feature_metrics = get_feature_metrics(mzmls, pia_report_psm_mztabs, mcquac_params_file)
+		feature_metrics = get_feature_metrics(mzmls, pia_report_psm_mztabs, 
+			params.identification__peptide_mass_tolerance_upper,
+			params.identification__peptide_mass_units
+		)
 
 		// Get Thermo/Bruker specific information from raw_spectra
 		custom_header_infos = get_headers(thermo_raw_files, params.ms_run_metrics__thermo_raw_mem, params.ms_run_metrics__thermo_headers,
