@@ -133,7 +133,12 @@ workflow {
 				psm_results = pia_report_psm_mztabs
 			}
 
-			spike_in_metrics = retrieve_spike_ins_information(raw_files, psm_results, spike_ins_table)
+			spike_in_metrics = retrieve_spike_ins_information(
+				raw_files,
+				psm_results,
+				spike_ins_table,
+				params.max_parallel_xic_extractors_factor
+			)
 		}
 	 
 		// Run Feature Finding
