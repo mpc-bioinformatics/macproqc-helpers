@@ -98,9 +98,8 @@ process generate_json_and_identifications {
 process retrieve_xics_from_thermo_raw_spectra {
     label 'thermorawfileparser_image'
 
-    cpus 2
+    cpus { max_parallel_xic_extractors_factor}
     memory '8.GB'
-    maxForks { Runtime.runtime.availableProcessors() * max_parallel_xic_extractors_factor }
 
     input:
     tuple val(run_basename), path(raw), path(xic_json)
@@ -123,9 +122,8 @@ process retrieve_xics_from_thermo_raw_spectra {
 process retrieve_xics_from_bruker_raw_spectra {
     label 'mcquac_image'
     
-    cpus 2
+    cpus { max_parallel_xic_extractors_factor }
     memory '8.GB'
-    maxForks { Runtime.runtime.availableProcessors() * max_parallel_xic_extractors_factor }
 
     input:
     tuple val(run_basename), path(raw), path(xic_json)

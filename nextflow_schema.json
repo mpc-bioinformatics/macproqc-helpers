@@ -134,11 +134,10 @@
           "description": "Upper limit of range to be reported in a csv table for the charge, defaults to 5."
         },
         "max_parallel_xic_extractors_factor": {
-          "type": "number",
-          "default": 0.5,
-          "description": "Factor for the number of maximum forks for the XIC extractor processes, calculated by multiplying this value with the number of available processors.",
-          "minimum": 0,
-          "maximum": 1
+          "type": "integer",
+          "default": 2,
+          "description": "Factor for the number of maximum forks for the XIC extractor processes, calculated by dividing the number of available processors by this number. In fact, the number of required CPUs per task is set to the given value.",
+          "minimum": 1
         }
       }
     },
