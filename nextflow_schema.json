@@ -232,6 +232,18 @@
           "type": "string",
           "default": "add_K_lysine = 8.014199;add_R_arginine = 10.008269",
           "description": "The labels encoded in Comet static labels. Only used during the special identification for labelled spike ins if \"search_labelled_spikeins\" is true."
+        },
+        "identification__pia_threads": {
+          "type": "integer",
+          "default": 8,
+          "description": "Allowed number of CPUs / threads for PIA",
+          "minimum": 1
+        },
+        "identification__pia_gb_ram": {
+          "type": "integer",
+          "default": 16,
+          "description": "Allowed RAM to be used by PIA, in GB",
+          "minimum": 4
         }
       }
     }

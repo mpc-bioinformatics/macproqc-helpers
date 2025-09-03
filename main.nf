@@ -22,7 +22,7 @@ include {visualization} from './src/visualization.nf'
 
 // MAIN WORKFLOW
 workflow {
-	// validate the parameters to the schema - there will be no error, only warnings
+	// validate the parameters to the schema - if they don't validate, workflow will be stopped, if not in the schema, a warning is thrown
 	validateParameters()
 	
 	if (params.visualize_only) {
@@ -82,7 +82,11 @@ workflow {
 		)
 
 		// Execute protein inference and filter by FDR
-		pia_report_files = pia_analysis_full(comet_ids.mzids)
+		pia_report_files = pia_analysis_full(
+			comet_ids.mzids,
+			params.identification__pia_threads,
+			params.identification__pia_gb_ram
+		)
 		pia_report_psm_mztabs = pia_report_files
 				.toList()
 					.transpose()
@@ -111,8 +115,13 @@ workflow {
 			)
 
 			// set the filter to true to count only FDR filtered labelled PSMs - but the FDR is skewed anyways, as the labelling is set to "static"!
-			labelled_pia_report_files = pia_analysis_psm_only(comet_labelled_ids.mzids, false)
-		}
+			labelled_pia_report_files = pia_analysis_psm_only(
+				comet_labelled_ids.mzids,
+				false,
+				params.identification__pia_threads,
+				params.identification__pia_gb_ram
+			)
+	}
 
 		// extract spike-ins information
 		if (params.search_spike_ins) {
