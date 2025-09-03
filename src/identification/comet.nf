@@ -7,11 +7,8 @@
 
 /*
  * Identifies peptides in MS/MS spectra using Comet
- * @param mzmls Path to mzML files
- * @param fasta_file Path to mzML file
- * @param comet_params Path to comet params file
  *
- * @return pepxmls Path to pepXML files
+ * @return mzID containing the identification results
  */
 workflow identification_with_comet {
     take:
@@ -84,10 +81,9 @@ process create_fresh_comet_params {
 }
 
 /**
- * Adjust comet.params to have the correct output files and threads are limited
+ * Adjust comet.params to have the correct output files and limited allowed threads.
+ * Also set all parameters.
  *
- * @param comet_params Comet parameter file
- * @param threads Threads to use for each comet search
  * @return adjusted comet parameter file
  */
 process adjust_comet_params {
@@ -130,11 +126,8 @@ process adjust_comet_params {
 
 /*
  * Generates a decoy database from the given FASTA file
- * @param fasta Path to fasta file
- * @param fasta_file Path to mzML file
- * @param config_file Path to comet params file
  *
- * @return pepxml Path to pepXML file
+ * @return FASTA with decoys
  */
 process generate_decoy_database {
     label 'mcquac_image'
@@ -158,9 +151,6 @@ process generate_decoy_database {
 
 /*
  * Identifies peptides in MS/MS spectra using Comet
- * @param mzml Path to mzML file
- * @param fasta_file Path to mzML file
- * @param config_file Path to comet params file
  *
  * @return mzid Path to mzid file
  */
