@@ -98,7 +98,7 @@ process generate_json_and_identifications {
 process retrieve_xics_from_thermo_raw_spectra {
     label 'thermorawfileparser_image'
 
-    cpus { max_parallel_xic_extractors_factor}
+    cpus {max_parallel_xic_extractors_factor}
     memory '8.GB'
 
     input:
@@ -122,7 +122,7 @@ process retrieve_xics_from_thermo_raw_spectra {
 process retrieve_xics_from_bruker_raw_spectra {
     label 'mcquac_image'
     
-    cpus { max_parallel_xic_extractors_factor }
+    cpus {max_parallel_xic_extractors_factor}
     memory '8.GB'
 
     input:
