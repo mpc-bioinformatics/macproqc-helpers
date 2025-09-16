@@ -24,7 +24,7 @@ include {visualization} from './src/visualization.nf'
 workflow {
 	// validate the parameters to the schema - if they don't validate, workflow will be stopped, if not in the schema, a warning is thrown
 	validateParameters()
-	
+			
 	if (params.visualize_only) {
 		// only visualization
 		list_hdf5_files = file(params.main_input_folder + '/*.hdf5')
@@ -46,11 +46,8 @@ workflow {
 	} else {
 		// complete workflow
 
-		// initialize channels for inputs
-		main_outdir = Channel.fromPath(params.main_outdir, type: 'dir').first()
-		fasta_file = Channel.fromPath(params.main_fasta_file).first()
-
 		// Retrieve input files
+		fasta_file = Channel.fromPath(params.main_fasta_file).first()
 		thermo_raw_files = Channel.fromPath(params.main_input_folder + "/*.raw")
 		bruker_raw_folders = Channel.fromPath(params.main_input_folder + "/*.d", type: 'dir')
 		input_mzml_files = Channel.fromPath(params.main_input_folder + "/*.mzML")
@@ -82,7 +79,8 @@ workflow {
 			fasta_file,
 			params.identification__generate_decoys,
 			params.identification__decoy_method,
-			main_outdir,
+			params.main_outdir,
+			params.identification__store_decoy_fasta,
 			params.identification__comet_threads,
 			params.identification__comet_mem,
 			params.identification__peptide_mass_tolerance_upper,
@@ -115,7 +113,8 @@ workflow {
 				fasta_file,
 				params.identification__generate_decoys,
 				params.identification__decoy_method,
-				main_outdir,
+				params.main_outdir,
+				params.identification__store_decoy_fasta,
 				params.identification__comet_threads,
 				params.identification__comet_mem,
 				params.identification__peptide_mass_tolerance_upper,
@@ -191,7 +190,7 @@ workflow {
 			.concat(custom_header_infos.map{file -> tuple(file.name.take(file.name.lastIndexOf('-custom_headers.hdf5')), file)})
 			.groupTuple()
 
-		combined_metrics = combine_metric_hdf5(hdf5s_per_run, main_outdir)
+		combined_metrics = combine_metric_hdf5(hdf5s_per_run, params.main_outdir)
 
 		// Visualize the results (and move them to the results folder)
 		visualization(
@@ -210,6 +209,10 @@ workflow {
 			params.width_ionmaps
 		)
 
-		output_processing_success(raw_files.concat(input_mzml_files), hdf5s_per_run.toList().transpose().first().flatten())
+		output_processing_success(
+			raw_files.concat(input_mzml_files),
+			hdf5s_per_run.toList().transpose().first().flatten(),
+			params.main_outdir
+		)
 	}
 }

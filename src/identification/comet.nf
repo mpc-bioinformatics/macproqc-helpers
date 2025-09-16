@@ -17,6 +17,7 @@ workflow identification_with_comet {
         generate_decoys
         decoy_method
         fasta_output_folder
+        store_decoy_fasta
         comet_cpu
         comet_mem
         peptide_mass_tolerance_upper
@@ -44,14 +45,18 @@ workflow identification_with_comet {
         )
 
         if (generate_decoys) {
-            fasta_file = generate_decoy_database(fasta_file, decoy_method)
+            fasta_file = generate_decoy_database(
+                fasta_file,
+                decoy_method,
+                store_decoy_fasta,
+                fasta_output_folder
+            )
         }
 
         id_results = comet_search(
             mzmls,
             fasta_file,
             adj_comet_params,
-            fasta_output_folder,
             comet_cpu,
             comet_mem
         )
@@ -135,9 +140,13 @@ process generate_decoy_database {
     cpus 2
     memory "8.GB"
 
+    publishDir path: { "${fasta_output_folder}" }, mode: 'copy', pattern: "*.fasta", enabled: "${store_decoy_fasta}"  // Publish the FASTA file, which was used for the search
+
     input:
     path fasta
     val decoy_method
+    val store_decoy_fasta
+    val fasta_output_folder
 
     output:
     path "${fasta.baseName}_with_decoys.fasta"
@@ -160,13 +169,10 @@ process comet_search {
     cpus { comet_cpu }
     memory { comet_mem }
     
-    publishDir "${fasta_output_folder}/", mode: 'copy', pattern: "*.fasta"  // Publish the FASTA file, which was used for the search
-
     input:
     path mzml
     path input_fasta
     path comet_params_file
-    path fasta_output_folder
     val comet_cpu
     val comet_mem
 

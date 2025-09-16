@@ -18,15 +18,20 @@ workflow output_processing_success {
     take:
     raw_files
     processed_basenames
+    output_dir
 
     main:
     raw_map = raw_files.map{file -> tuple(file.baseName, file)}
 	processed_ok = processed_basenames.map{name -> tuple(name, "successful")}
 
     info_files = write_processing_information(raw_map.join(processed_ok, remainder: true))
-
-    collected_information = info_files.collectFile(name: "processing_info.txt", storeDir: "${params.main_outdir}")
-
+    
+    collected_information = info_files.collectFile(
+            storeDir: "${output_dir}/",
+            name:  'processing_info.txt',
+            newLine: true
+        )
+    
     emit:
     collected_information
 }

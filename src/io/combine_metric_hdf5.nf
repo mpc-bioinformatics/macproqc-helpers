@@ -40,11 +40,11 @@ process merge_metrics {
 	cpus 2
 	memory '4.GB'
 
-	publishDir "${output_folder}/qc_hdf5_data", mode:'copy'
+	publishDir path: { "${output_folder}/qc_hdf5_data" }, mode:'copy'
 
 	input:
 	tuple val(runBaseName), path(metrics)
-	path output_folder
+	val output_folder
 
 	output:
 	path "${runBaseName}.hdf5"
