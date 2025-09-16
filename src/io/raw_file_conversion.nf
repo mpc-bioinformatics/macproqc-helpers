@@ -81,6 +81,6 @@ process convert_bruker_raw_folders {
     export NUMEXPR_NUM_THREADS=${bruker_conversion_cpu}
     export OMP_NUM_THREADS=${bruker_conversion_cpu}
 
-    tdf2mzml -i ${raw_folder} --compression "zlib" --ms1_type centroid -o ${raw_folder.baseName}.mzML
+    tdf2mzml -i ${raw_folder} --compression "none" --ms1_type centroid -o ${raw_folder.baseName}.mzML
     """
 }
