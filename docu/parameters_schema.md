@@ -80,6 +80,7 @@ Parameters used for the extraction of metrics
 | `identification__comet_threads` | CPUs / threads used for the identification with Comet | `integer` | 8 |  |  |
 | `identification__comet_mem` | Memory used for the identification with Comet | `string` | 10.GB |  |  |
 | `identification__generate_decoys` | If true, decoys are generated before starting the spectrum identification. Otherwise, decoys should already be in the FASTA file | `boolean` | True |  |  |
+| `identification__store_decoy_fasta` | If true, the generated decoy DB will be stored in the output folder | `boolean` | False |  |  |
 | `identification__decoy_method` | Applied method for the generation of decoys, either "reverse" or "shuffle" | `string` | shuffle |  |  |
 | `identification__peptide_mass_tolerance_upper` | Comet parameter: peptide_mass_tolerance_upper, upper bound of the precursor mass tolerance | `number` | 5 |  |  |
 | `identification__peptide_mass_tolerance_lower` | Comet parameter: peptide_mass_tolerance_lower, lower bound of the precursor mass tolerance; USUALLY NEGATIVE TO BE LOWER THAN 0 | `number` | -5 |  |  |
