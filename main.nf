@@ -47,7 +47,7 @@ workflow {
 		// complete workflow
 
 		// initialize channels for inputs
-		main_outdir = Channel.fromPath(params.main_outdir).first()
+		main_outdir = Channel.fromPath(params.main_outdir, type: 'dir').first()
 		fasta_file = Channel.fromPath(params.main_fasta_file).first()
 
 		// Retrieve input files
