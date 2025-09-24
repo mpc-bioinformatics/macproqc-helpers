@@ -9,6 +9,9 @@ import argparse
 import os
 from datetime import datetime, timezone
 from typing import Dict, Tuple, List, Any
+import sys
+import warnings
+import logging
 
 # 3rd party imports
 import pandas as pd
@@ -321,11 +324,25 @@ if __name__ == "__main__":
 
     ### read in the hdf5 files
     hdf5s = [h5py.File(f, "r") for f in args.hdf5_files]
+    
+    ### give warning if files from both Bruker and Thermo machines are present
+    thermo_files = []
+    bruker_files = []
+    for hdf5 in hdf5s:
+        if 'THERMO|Extracted_Headers' in hdf5.keys():
+            thermo_files.append(hdf5)
+        elif 'BRUKER|Extracted_Headers' in hdf5.keys():
+            bruker_files.append(hdf5)
+            
+    logger = logging.getLogger(__name__)
+    if thermo_files and bruker_files:
+        logging.basicConfig(filename='to_log_with_nf_later.log', level=logging.DEBUG) # encoding='utf-8',
+        logger.warning("You have files from both Thermo and Bruker machines. Direct comparison is not possible, no plots will be created.")
+        sys.exit(0)
 
     (single_value_ids, array_value_ids, dataframe_ids) =  get_dataset_types(hdf5s[0])
     
     single_values = get_dataframe_of_single_values(hdf5s, single_value_ids)
-    #single_values = single_values.sort_values("filename", ascending=True)  # Sort values by filename
     single_value_ids_short = [s.split("|")[-1] for s in single_value_ids]
 
     array_values = get_array_values(hdf5s, array_value_ids)
