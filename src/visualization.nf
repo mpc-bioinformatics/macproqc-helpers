@@ -1,12 +1,9 @@
 #!/usr/bin/env nextflow
 
-/**
- * Workflows for vizualization of the reults
- */
+// 
+// Workflows for vizualization of the reults
+// 
 
-nextflow.enable.dsl=2
-
-python_image = 'mpc/nextqcflow-python:latest'
 
 workflow visualization {
     take: 
@@ -28,18 +25,21 @@ workflow visualization {
         visualize_results(combined_metrics, main_outdir, rt_unit, output_column_order, spikein_columns, output_table_type, search_spike_ins, height_barplots, width_barplots, height_pca, width_pca, height_ionmaps, width_ionmaps)
 
     emit:
-        visualize_results.out[0]
-        visualize_results.out[1]
-        visualize_results.out[2]
-        visualize_results.out[3]
-        visualize_results.out[5]
-        visualize_results.out[6]
+        jsons = visualize_results.out[0]
+        htmls = visualize_results.out[1]
+        tables = visualize_results.out[2]
+        combined_metrics = visualize_results.out[3]
+        fig15_additional_headers = visualize_results.out[5]
+        fig16_BRUKER_calibrants = visualize_results.out[6]
 }
 
 process visualize_results {
-    container { python_image }
+    label 'mcquac_image'
 
-    publishDir "${main_outdir}/qc_results", mode:'copy'		// TODO: this should probably rather use the new reporting facilities
+    cpus 2
+    memory '16.GB'
+
+    publishDir "${main_outdir}/qc_results", mode:'copy'
 
     input:
     path combined_metrics
@@ -65,12 +65,13 @@ process visualize_results {
     path("fig15_additional_headers")
     path("fig16_BRUKER_calibrants")
 
+    script:
     """
     if ${search_spike_ins}
     then 
-    QC_visualization.py -hdf5_files ${combined_metrics} -output "." -spikeins -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
+        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -spikeins -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
     else
-    QC_visualization.py -hdf5_files ${combined_metrics} -output "." -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
+        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
     fi
     """
 }

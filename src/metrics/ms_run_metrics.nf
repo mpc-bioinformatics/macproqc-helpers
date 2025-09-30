@@ -1,23 +1,15 @@
 #!/usr/bin/env nextflow
-/**
- * Workflows for collecting various metadata of the MS runs from RAW files and mzML files.
- * e.g. pump preassure, ion injection time, ...
- */
 
-nextflow.enable.dsl=2
-
-// Set if you want to extract specific calibrants in Bruker raw measurements, otherwise the default is used 
-// (622.0290 m/z, 922.009798 m/z and 1221.990637 m/z with a 10 m/z and 0.1 1/k0 tolerance).
-// Have a look into the corresponding python script for the headers.
-params.ms_run_metrics__bruker_calibrants = ""
+// 
+// Workflows for collecting various metadata of the MS runs from RAW files and mzML files.
+// e.g. pump preassure, ion injection time, ...
+// 
 
 /**
  * Get metadata headers from Thermo and Bruker raw files, like 
  * - Thermo: Lock Mass, Ion Injection Time, 
  * - Bruker: Vacuum_CurrentFore, Vacuum_CurrentHigh, etc.
  *
- * @param thermo_raw_files Channel of Thermo raw files
- * @param bruker_raw_files Channel of Bruker .d-folders
  * @return Channel of headers HDF5 files
  */
 workflow get_headers {
@@ -28,11 +20,11 @@ workflow get_headers {
         bruker_raw_files
         bruker_memory_limit
         bruker_headers_to_parse
+        bruker_calibrants
 
     main:
-        // Extract Information directly from the RAW-file using fisher-py
         thermo_headers = extract_headers_from_thermo_raw_files(thermo_raw_files, thermo_memory_limit, thermo_headers)
-        bruker_headers = extract_headers_from_bruker_raw_files(bruker_raw_files, bruker_memory_limit, bruker_headers_to_parse)
+        bruker_headers = extract_headers_from_bruker_raw_files(bruker_raw_files, bruker_memory_limit, bruker_headers_to_parse, bruker_calibrants)
         headers = thermo_headers.concat(bruker_headers)
 
     emit:
@@ -48,11 +40,13 @@ workflow get_headers {
 workflow get_mzml_infos {
     take:
         mzmlfiles
-        central_params
         memory_limit
+        base_peak_tic_up_to
+        filter_threshold
+        report_up_to_charge
 
     main:
-        informations = extract_data_from_mzml(mzmlfiles, central_params, memory_limit)
+        informations = extract_data_from_mzml(mzmlfiles, memory_limit, base_peak_tic_up_to, filter_threshold, report_up_to_charge)
 
     emit:
         informations
@@ -66,6 +60,7 @@ workflow get_mzml_infos {
  */
 process extract_headers_from_thermo_raw_files {
     label 'mcquac_image'
+    
     cpus 1
     memory "${memory_limit}"
 
@@ -110,14 +105,14 @@ process extract_headers_from_bruker_raw_files {
     path raw
     val memory_limit
     val bruker_headers_to_parse
+    val bruker_calibrants
 
     output:
     path "${raw.baseName}-custom_headers.hdf5"
 
     script:
     """
-    extract_bruker_headers.py -d_folder ${raw} -out_hdf5 ${raw.baseName}-custom_headers.hdf5 ${bruker_headers_to_parse} ${params.ms_run_metrics__bruker_calibrants}
-
+    extract_bruker_headers.py -d_folder ${raw} -out_hdf5 ${raw.baseName}-custom_headers.hdf5 ${bruker_headers_to_parse} ${bruker_calibrants}
     """
 }
 
@@ -135,14 +130,16 @@ process extract_data_from_mzml {
 
     input:
     path mzml
-    path central_params    // JSON file with central McQuaC parameters
     val memory_limit
+    val base_peak_tic_up_to
+    val filter_threshold
+    val report_up_to_charge
 
     output:
     path "${mzml.baseName}-mzml_info.hdf5"
 
     script:
     """
-    extract_data_from_mzml.py -mzml ${mzml} -out_hdf5 ${mzml.baseName}-mzml_info.hdf5 -mcquac_params ${central_params}
+    extract_data_from_mzml.py -mzml ${mzml} -out_hdf5 ${mzml.baseName}-mzml_info.hdf5 -base_peak_tic_up_to ${base_peak_tic_up_to} -filter_threshold ${filter_threshold} -report_up_to_charge ${report_up_to_charge}
     """
 }

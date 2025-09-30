@@ -9,14 +9,15 @@ import datetime
 import time
 import h5py
 from typing import List, Any
-import parse_central_json as pcj
 
 
 def argparse_setup():
     parser = argparse.ArgumentParser()
     parser.add_argument("-mzml", help="mzML file to extract data from")
     parser.add_argument("-out_hdf5", help="The Output HDF5 file")
-    parser.add_argument("-mcquac_params", required=True, type=argparse.FileType('r'), help="JSON file with central McQuaC parameters.")
+    parser.add_argument("-base_peak_tic_up_to", required=True, type=int, help="Base peak TIC up to X minutes (e.g. 105)")
+    parser.add_argument("-filter_threshold", required=True, type=float, help="Filter threshold (e.g. 0.00001)")
+    parser.add_argument("-report_up_to_charge", required=True, type=int, help="Report up to charge (e.g. 5)")
     return parser.parse_args()
 
 
@@ -82,12 +83,9 @@ def get_accumulated_TIC(exp, mslevel):
 if __name__ == "__main__":
     args = argparse_setup()
 
-    # parse parameters from central json file
-    mcquac_params = pcj.parse_json(args.mcquac_params.name)
-    
-    base_peak_tic_up_to = int(pcj.get_central_param(mcquac_params, ["ms_run_metrics", "base_peak_tic_up_to"], default_value=105))
-    filter_threshold = float(pcj.get_central_param(mcquac_params, ["ms_run_metrics", "filter_threshold"], default_value=0.00001))
-    report_up_to_charge = int(pcj.get_central_param(mcquac_params, ["ms_run_metrics", "report_up_to_charge"], default_value=5))
+    base_peak_tic_up_to = args.base_peak_tic_up_to
+    filter_threshold = args.filter_threshold
+    report_up_to_charge = args.report_up_to_charge
 
     # # Load MZML
     exp = pyopenms.MSExperiment()
