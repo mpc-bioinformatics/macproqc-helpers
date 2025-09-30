@@ -20,7 +20,7 @@ jobs:
       - name: Build Docker image
         id: build
         run: |
-          docker build -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} -f docker/python/Dockerfile .
+          docker build -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} -f docker/Dockerfile .
 
       # First we would need some tests
       # - name: Run tests in Docker container
