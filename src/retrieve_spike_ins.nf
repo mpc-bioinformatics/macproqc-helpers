@@ -1,25 +1,13 @@
 #!/usr/bin/env nextflow
 
-/**
- * Workflows and processees for checking spike-in existance and XIC extraction
- */
-
-
-nextflow.enable.dsl=2
-
-python_image = 'mpc/nextqcflow-python:latest'
-thermorawfileparser_image = 'quay.io/biocontainers/thermorawfileparser:1.4.3--ha8f3691_0'
-
-params.max_parallel_xic_extractors = Runtime.runtime.availableProcessors() / 2
+// 
+// Workflows and processees for the extraction of spike in metrics
+// 
 
 /*
  * Extracts for each defined spike-in the XIC in the respective m/z and RT region, looks
  * for identifications of the respective sequence and returns the highest peak of the XIC,
  * its RT and the number of identifications.
- *
- * @param raw_files the raw files (.raw or .d)
- * @param psm_mztab_files the PSM results in mzTab
- * @param spike_ins_table the spike-ins defined in CSV format
  *
  * @return spike_in_metrics the metrics of the spike-ins
  */
@@ -28,6 +16,7 @@ workflow retrieve_spike_ins_information {
         raw_files
         psm_mztab_files
         spike_ins_table
+        max_parallel_xic_extractors_factor
     
     main:
         // Finally, we generate the input json, retrieve it via trfp and parse back this results into a csv-format
@@ -50,8 +39,8 @@ workflow retrieve_spike_ins_information {
             bruker: it[1].getExtension() == 'd'
         }.set{ branched_runbase_to_raw_and_json }
 
-        thermo_xics = retrieve_xics_from_thermo_raw_spectra(branched_runbase_to_raw_and_json.thermo)
-        bruker_xics = retrieve_xics_from_bruker_raw_spectra(branched_runbase_to_raw_and_json.bruker)
+        thermo_xics = retrieve_xics_from_thermo_raw_spectra(branched_runbase_to_raw_and_json.thermo, max_parallel_xic_extractors_factor)
+        bruker_xics = retrieve_xics_from_bruker_raw_spectra(branched_runbase_to_raw_and_json.bruker, max_parallel_xic_extractors_factor)
         
         xics = thermo_xics.concat(bruker_xics)
 
@@ -76,14 +65,14 @@ workflow retrieve_spike_ins_information {
  * spike-ins file and the identification results are used to refine the retention
  * times for the extraction.
  *
- * @param psm_mztab_files the identifications in the PIA generated mzTab
- * @param spike_ins the spike-ins file
- *
  * @return *-trfp_input.json the JSON for the XIC extraction
  * @return *-identifications.csv a file mapping from the sequences to found identifications
  */
 process generate_json_and_identifications {
-    container { python_image }
+    label 'mcquac_image'
+
+    cpus 1
+    memory '1.GB'
 
     input:
     path psm_mztab_files
@@ -93,31 +82,33 @@ process generate_json_and_identifications {
     path "${psm_mztab_files.name.take(psm_mztab_files.name.lastIndexOf('-piaExport-PSM.mzTab'))}-trfp_input.json", emit: json
     path "${psm_mztab_files.name.take(psm_mztab_files.name.lastIndexOf('-piaExport-PSM.mzTab'))}-identifications.csv", emit: identifications
 
+    script:
     """
-    create_spike_in_xic_json.py -icsv ${spike_ins} -iidents ${psm_mztab_files} -ojson ${psm_mztab_files.name.take(psm_mztab_files.name.lastIndexOf('-piaExport-PSM.mzTab'))}-trfp_input.json -oidentifications ${psm_mztab_files.name.take(psm_mztab_files.name.lastIndexOf('-piaExport-PSM.mzTab'))}-identifications.csv
+    create_spike_in_xic_json.py -icsv ${spike_ins} -iidents ${psm_mztab_files} \
+            -ojson ${psm_mztab_files.name.take(psm_mztab_files.name.lastIndexOf('-piaExport-PSM.mzTab'))}-trfp_input.json \
+            -oidentifications ${psm_mztab_files.name.take(psm_mztab_files.name.lastIndexOf('-piaExport-PSM.mzTab'))}-identifications.csv
     """
 }
 
 /**
  * Performs the XIC extraction on Thermo raw files
  *
- * @param run_basename (not used)
- * @param raw Thermo raw file
- * @param xic_json the JSON for the XIC extraction
- *
  * @return baseName.json the extracted XICs in JSON format
  */ 
 process retrieve_xics_from_thermo_raw_spectra {
-    container { thermorawfileparser_image }
+    label 'thermorawfileparser_image'
 
-    maxForks params.max_parallel_xic_extractors
+    cpus {max_parallel_xic_extractors_factor}
+    memory '8.GB'
 
     input:
     tuple val(run_basename), path(raw), path(xic_json)
+    val max_parallel_xic_extractors_factor
 
     output:
     path "${raw.baseName}.json"
 
+    script:
     """
     thermorawfileparser xic -i ${raw} -j ${xic_json}
     """
@@ -126,23 +117,22 @@ process retrieve_xics_from_thermo_raw_spectra {
 /**
  * Performs the XIC extraction on Bruker .d files
  *
- * @param run_basename (not used)
- * @param raw Bruker .d file
- * @param xic_json the JSON for the XIC extraction
- *
  * @return baseName.json the extracted XICs in JSON format
  */ 
 process retrieve_xics_from_bruker_raw_spectra {
-    container { python_image }
-
-    maxForks params.max_parallel_xic_extractors
+    label 'mcquac_image'
+    
+    cpus {max_parallel_xic_extractors_factor}
+    memory '8.GB'
 
     input:
     tuple val(run_basename), path(raw), path(xic_json)
+    val max_parallel_xic_extractors_factor
 
     output:
     path "${raw.baseName}.json"
 
+    script:
     """
     extract_xic_bruker.py -d_folder ${raw} -in_json ${xic_json} -out_json ${raw.baseName}.json
     """
@@ -151,14 +141,13 @@ process retrieve_xics_from_bruker_raw_spectra {
 /**
  * Creates the metrics of the spike in extraction, regarding XICs, identification and RT deltas
  *
- * @param run_basename (not used)
- * @param xic_json the extracted XICs in JSON
- * @param identifications a CSV mapping the sequences to number of identifications
- *
  * @return baseName-spikeins.csv the metrics of the spike-ins extraction, in CSV
  */ 
 process get_spike_in_metrics {
-    container { python_image }
+    label 'mcquac_image'
+
+    cpus 1
+    memory '4.GB'
 
     input:
     tuple val(run_basename), path(xic_json), path(identifications)
@@ -167,6 +156,7 @@ process get_spike_in_metrics {
     output:
     path "${xic_json.baseName}-spikeins.hdf5"
 
+    script:
     """
     extract_spike_metrics.py -itrfp_json ${xic_json} -iidentifications ${identifications} -ispikeins ${spike_ins_table} -ohdf5 ${xic_json.baseName}-spikeins.hdf5
     """

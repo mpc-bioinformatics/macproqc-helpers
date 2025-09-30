@@ -1,20 +1,8 @@
 #!/usr/bin/env nextflow
 
-
-/**
- * Workflows and processes for protein inference using PIA
- */
-
-
-nextflow.enable.dsl=2
-
-pia_image = 'quay.io/biocontainers/pia:1.5.5--hdfd78af_0'
-python_image = 'mpc/nextqcflow-python:latest'
-
-params.pia_gb_ram = 16
-params.pia_threads = 8
-
-pia_mem_params = "-Xms2g -Xmx" + params.pia_gb_ram + "g"  // additional PIA parameters to set the memory consumption
+// 
+// Workflows and processes for protein inference using PIA
+// 
 
 // Note for CPUs: PIA needs/takes very shortly all available processors, but rather idles on them later.
 // On the memory-side, it uses a lot the more PSMs are found...
@@ -22,12 +10,6 @@ pia_mem_params = "-Xms2g -Xmx" + params.pia_gb_ram + "g"  // additional PIA para
 
 /*
  * Performs PIA's FDR and protein iference on the given files and levels.
- * 
- * @param identifications search engine results
- * @param do_psm_export whether PSM level data should be returned
- * @param do_peptide_export whether peptide level data should be returned
- * @param do_protein_export whether protein level data should be returned
- * @param fdr_filter whether FDR filtering should be performed (on any level)
  *
  * @return return_files tuples containing the PSM, peptide and protein level results each (may be empty, if level was not returned)
  */
@@ -38,11 +20,13 @@ workflow pia_analysis {
         do_peptide_export
         do_protein_export
         fdr_filter
-    
+        pia_threads
+        pia_gb_ram
+
     main:
-        pia_xmls = compile_pia_xmls(identifications)
+        pia_xmls = compile_pia_xmls(identifications, pia_threads, pia_gb_ram)
         analysis_json = prepare_analysis_json(do_psm_export, do_peptide_export, do_protein_export, fdr_filter)
-        pia_all_report_files = pia_run_analysis(pia_xmls, analysis_json)
+        pia_all_report_files = pia_run_analysis(pia_xmls, analysis_json, pia_threads, pia_gb_ram)
 
         return_files = pia_all_report_files.psms.collect()
             .concat(pia_all_report_files.peptides.collect())
@@ -57,17 +41,25 @@ workflow pia_analysis {
 
 /*
  * Performs PIA's FDR and protein iference on the given files and all levels.
- *
- * @param identifications search engine results
- *
+ * 
  * @return return_files tuples containing the PSM, peptide and protein level results each (may be empty, if level was not returned)
  */
 workflow pia_analysis_full {
     take:
         identifications
+        pia_threads
+        pia_gb_ram
 
     main:
-        pia_report_files = pia_analysis(identifications, true, true, true, true)
+        pia_report_files = pia_analysis(
+            identifications,
+            true,
+            true,
+            true,
+            true,
+            pia_threads,
+            pia_gb_ram
+        )
     
     emit:
         pia_report_files
@@ -76,18 +68,25 @@ workflow pia_analysis_full {
 /*
  * Performs PIA's FDR and protein iference on the given files and PSM level only.
  *
- * @param identifications search engine results
- * @param fdr_filter whether FDR-filtering should be performed
- *
  * @return psm_file the results on PSM level
  */
 workflow pia_analysis_psm_only {
     take:
         identifications
         fdr_filter
+        pia_threads
+        pia_gb_ram
     
     main:
-        pia_report_files = pia_analysis(identifications, true, false, false, fdr_filter)
+        pia_report_files = pia_analysis(
+            identifications,
+            true,
+            false,
+            false,
+            fdr_filter,
+            pia_threads,
+            pia_gb_ram
+        )
 
     emit:
         pia_report_files
@@ -99,8 +98,6 @@ workflow pia_analysis_psm_only {
 
 /**
  * Extracts the QC metrics from the PIA results and writes them into a HFD5
- *
- * @param pia_results the PIA results as tuples, as returned by the pia_analysis
  *
  * @return extracted hdf5 metrics written into the HFD5 file
  */
@@ -119,38 +116,38 @@ workflow pia_extract_metrics {
 /**
  * Compiles the input files into PIA intermediate files
  *
- * @param identifications search engine results in a PIA usable format
- *
  * @return pia.xml the compilation as pia.xml
  */
 process compile_pia_xmls {
-    container { pia_image }
+    label 'pia_image'
     
-    cpus {params.pia_threads}
-    memory {params.pia_gb_ram + " GB"}
+    cpus {pia_threads}
+    memory "${pia_gb_ram}.GB"
 
     input:
     path identifications
+    val pia_threads
+    val pia_gb_ram
 
     output:
     path "${identifications.baseName}.pia.xml"
 
+    script:
     """
-    pia ${pia_mem_params} --threads ${params.pia_threads} --compile -o ${identifications.baseName}.pia.xml ${identifications}
+    pia -Xms2g -Xmx${pia_gb_ram}g --threads ${pia_threads} --compile -o ${identifications.baseName}.pia.xml ${identifications}
     """
 }
 
 /**
  * Creates a PIA json analysis file with given export parameters
  *
- * @param psm_export true/false either export to PSM level or not
- * @param peptide_export true/false either export to peptide level or not
- * @param protein_export true/false either export to protein level or not
- *
  * @return an pia_analysis.json with defined parameters for the QC
  */
 process prepare_analysis_json {
-    container { pia_image }
+    label 'pia_image'
+
+    cpus 1
+    memory "4.GB"
 
     input:
     val psm_export
@@ -161,6 +158,7 @@ process prepare_analysis_json {
     output:
     path "pia_analysis.json"
 
+    script:
     """
     pia --example > pia_analysis.json
     
@@ -219,27 +217,27 @@ process prepare_analysis_json {
  * The command line allows you to execute an analysis via prior defined analysis in JSON format. 
  * Additionally to the json file, the prior compiled intermediate file must be given.
  *
- * @param pia_xml the pre-compiled PIA XML file
- * @param pia_analysis_file the pre-geenrated PIA json analysis file
- *
  * @return exports for the PSM, peptide and protein level (might be emmpty files, if teh analysis is given like it)
  *
  */
 process pia_run_analysis {
-    container { pia_image }
+    label 'pia_image'
 
-    cpus {params.pia_threads}
-    memory {params.pia_gb_ram + " GB"}
+    cpus {pia_threads}
+    memory "${pia_gb_ram}.GB"
 
     input:
     path pia_xml
     path pia_analysis_file
+    val pia_threads
+    val pia_gb_ram
 
     output:
     path "${pia_xml.name.take(pia_xml.name.lastIndexOf('.pia.xml'))}-piaExport-PSM.mzTab", emit: psms
     path "${pia_xml.name.take(pia_xml.name.lastIndexOf('.pia.xml'))}-piaExport-peptides.csv", emit: peptides
     path "${pia_xml.name.take(pia_xml.name.lastIndexOf('.pia.xml'))}-piaExport-proteins.mzTab", emit: proteins
 
+    script:
     """
     filebase="${pia_xml.name.take(pia_xml.name.lastIndexOf('.pia.xml'))}"
     jsonfile="\${filebase}-analysis.json"
@@ -254,13 +252,16 @@ process pia_run_analysis {
     sed -i 's;"peptideExportFile": .*;"peptideExportFile": "${pia_xml.name.take(pia_xml.name.lastIndexOf('.pia.xml'))}-piaExport-peptides.csv",;g' \${jsonfile}
     sed -i 's;"proteinExportFile": .*;"proteinExportFile": "${pia_xml.name.take(pia_xml.name.lastIndexOf('.pia.xml'))}-piaExport-proteins.mzTab",;g' \${jsonfile}
 
-    pia ${pia_mem_params} --threads ${params.pia_threads} \${jsonfile} ${pia_xml}
+    pia -Xms2g -Xmx${pia_gb_ram}g --threads ${pia_threads} \${jsonfile} ${pia_xml}
     """
 }
 
 
 process pia_extract_csv {
-    container { python_image }
+    label 'mcquac_image'
+
+    cpus 1
+    memory "8.GB"
 
     input:
     tuple path(psm_results), path(peptide_results), path(protein_results)

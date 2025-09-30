@@ -31,7 +31,9 @@ def add_entry_to_hdf5(
         ds[:] = value
     else:
         f.create_dataset(key, value_shape, dtype=value_type, compression="gzip")
-        f[key].write_direct(np.array(value, dtype=value_type))
+        if not any([x == 0 for x in value_shape]):
+            # Check if any dimension is 0. If so, we do not write data in it (zero lengthed result).
+            f[key].write_direct(np.array(value, dtype=value_type))
     
     f[key].attrs["qc_short_name"] = qc_short_name
     f[key].attrs["qc_name"] = qc_name
@@ -159,6 +161,7 @@ if __name__ == "__main__":
             (
                 "Table of various spike-ins metrics like, "
                 "max. intensity, RT at max. intensity, PSMs, and delta to expected RT."
+                " RT_at_Maximum_Intensity defaults to -1 if the spike-in was not found."
             ),
             column_names,
             column_data,

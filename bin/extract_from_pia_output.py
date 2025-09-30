@@ -31,7 +31,9 @@ def add_entry_to_hdf5(
         ds[:] = value
     else:
         f.create_dataset(key, value_shape, dtype=value_type, compression="gzip")
-        f[key].write_direct(np.array(value, dtype=value_type))
+        if not any([x == 0 for x in value_shape]):
+            # Check if any dimension is 0. If so, we do not write data in it (zero lengthed result).
+            f[key].write_direct(np.array(value, dtype=value_type))
     
     f[key].attrs["qc_short_name"] = qc_short_name
     f[key].attrs["qc_name"] = qc_name
@@ -115,7 +117,7 @@ def parse_protein_infos(pia_proteins_mztab: str, out_hdf5: h5py.File):
                       "UO:0000189", "count unit")
     
     add_entry_to_hdf5(out_hdf5,
-                      "Local:08", "nr_accessions", "number of identified protein accessions", "All protein accessions within the protein groups are counted (ungreouped protein groups).", 
+                      "LOCAL:08", "nr_accessions", "number of identified protein accessions", "All protein accessions within the protein groups are counted (ungreouped protein groups).", 
                       number_ungrouped_proteins, (1,), "int32", 
                       "UO:0000189", "count unit")
 
@@ -188,7 +190,9 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
                       "UO:0000189", "count unit")
     
     add_table_to_hdf5(out_hdf5,
-                      "Local:09", "PSM_charge_fractions", "TODO", "TODO", 
+                      "LOCAL:09", "PSM_charge_fractions", 
+                      "fractions of precursor charge states of the PSMs", 
+                      "Precursor charge states of the PSMs as fractions (only identifications are counted, not all precursors).", 
                       ["1", "2", "3", "4", "5", "6 or more"], charge_fractions, ["float64", "float64", "float64", "float64", "float64", "float64"]
     )
 
@@ -198,9 +202,14 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
     )
 
     add_entry_to_hdf5(out_hdf5,
-                      "LOCAL:05", "filtered_psms_ppm_error", "deviations in PPM for each PSM", "TODO", 
-                      ppm_error, (len(ppm_error),), "float64", 
-                      "UO:0000169", "parts per million")
+                        "LOCAL:05", "filtered_psms_ppm_error", "deviations in PPM for each PSM", 
+                            "Expected and calculated mass-to-charge ratios are compared for each PSM. Results are given in parts per million (ppm).",
+                       # {
+                       #     "Expected and calculated mass-to-charge ratios are compared for each PSM. "
+                       #     "Results are given in parts per million (ppm)."
+                       # }, 
+                        ppm_error, (len(ppm_error),), "float64", 
+                        "UO:0000169", "parts per million")
     
     if store_all_infos and (unfiltered_psms is not None):
         # TODO: fix in PIA
