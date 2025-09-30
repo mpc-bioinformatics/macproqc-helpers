@@ -57,13 +57,14 @@ process visualize_results {
     val width_ionmaps
 
     output:
-    path("*.json")
-    path("*.html")
-    path("*.${output_table_type}")
-    path(combined_metrics)
-    path("fig13_MS1_map")
-    path("fig15_additional_headers")
-    path("fig16_BRUKER_calibrants")
+    path("*.json"), optional: true
+    path("*.html"), optional: true
+    path("*.${output_table_type}"), optional: true
+    path(combined_metrics), optional: true
+    path("fig13_MS1_map"), optional: true
+    path("fig15_additional_headers"), optional: true
+    path("fig16_BRUKER_calibrants"), optional: true
+    path("to_log_with_nf_later.log"), optional: true
 
     script:
     """
