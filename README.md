@@ -1,149 +1,45 @@
 # Next-QC-Flow
 
-This workflow does quality control for DDA mass spectrometry proteomics data. The workflow can be used in two different modes (internal standard evaluation = `isa`).
+Quality control for mass spectrometry data in proteomics using DDA.
 
-For ISA (`is_isa = TRUE`): Additional steps are executed. Spike-Ins are retrieved from the spectra and also used for evaluation
-
-For no ISA (`is_isa = False`): No additional steps are executed.
-
-Some of the retrieved metrics in this workflow are based on the following publication:
-
+Based on the work of:
 ```text
 Bittremieux W, Meysman P, Martens L, Valkenborg D, Laukens K. Unsupervised Quality Assessment of Mass Spectrometry Proteomics Experiments by Multivariate Quality Control Metrics. J Proteome Res. 2016 Apr 1;15(4):1300-7. doi: 10.1021/acs.jproteome.6b00028. Epub 2016 Mar 18. PMID: 26974716.
 ```
 
 The [table](docu/QC_columns_overview.csv) shows all columns which can be retrieved by this quality control workflow, including a brief description for each.
 
-## Usage
-The workflow should be compatible with Linux, MacOS and Windows (WSL2).
+## Installation
+Clone the repository
 
 ### Requirements
-
 * Nextflow
 * Docker
-* `make`
+* Unix-like OS (Linux, macOS)
 
 Every thing else is maintained within Docker containers.   
 TL;DR Many software projects in academia are abandoned or not updated regularly which makes it difficult to use new and old software in a single native environment as they might need different version of the same dependency. E.g. thermorawfileparser is actually linked against Mono 5 on Conda while fisher_py needs Mono 6 to properly work. This might become worse with more dependencies as the workflow matures. Docker container provide a robust way to keep software within their own environment while Nextflow manages starting containers, mounting data etc. in a transparent manner.   
 The use of Docker containers also increases the compatibility between OSs as everything is running on Linux (VMs) in the background and enables us to run the workflow on one of Nextflow's many distributed executors (K8s, Apptainer, ...).   
 There is also at least on library which includes a vendor library and the permission to distribute it only via Docker container.
 
+### Usage
+Copy the `example_configurations/mcquac.json` and adjust it to your need. [The parameters are described in the documentation](docu/parameters_schema.md)
 
-### Installation
-Clone the repository
-
-#### Docker
-`make docker-imgs` to build/pull the necessary Docker images
-
-
-##### Run the workflow
 ```
-nextflow run -profile docker main.nf --main_raw_spectra_folder <FOLDER_WITH_RAWS_FILES --main_fasta_file <FASTA_FILE> --main_comet_params <COMET_CONFIG> --main_outdir <FOLDER_FOR_RESULTS>
+nextflow run -profile docker main.nf -prams-file <path-to-your-mcquac>.json
 ```
 
-##### For non-x64-hardware like Apple Silicon (M1, M2) use
+#### Results
+Result are store in the configured folder. There two subfolders will be created:
+* `qc_hdf5_data`: Calculated quality control metrics for each MS run.
+* `qc_results`: Figures and tables showing the the comparison. Table `00_tables_summary.csv` is and aggregated version of the metrics for direct comparison.
+
+#### For non-x64-hardware like Apple Silicon (M1, M2) use
 Does not work.
-TL;DR Mono is magically detecting it is running on ARM even in Rosetta emulated Docker containers. When correctly entering a x64-specific file it throws a assertion detection as the magically detected host architecture does not match the execution architecture. As Mono is required for ThermoRawFileParser and the Python module `fisher_py` there is currently no chance of getting rid of it. Use a x64 VM in UTM or VirtualBox.
-
-When we get rid of Mono:   
-```
-env DOCKER_DEFAULT_PLATFORM=linux/amd64 nextflow run -profile docker main.nf --main_raw_spectra_folder <FOLDER_WITH_RAWS_FILES --main_fasta_file <FASTA_FILE> --main_comet_params <COMET_CONFIG> --main_outdir <FOLDER_FOR_RESULTS>
-```
-TL;DR Some of the used software and containers are only available for x64, therefore Docker writes a warning on stderr that another architecture is used instead of the host architecture, which stops the Nextflow execution. Setting the architecture explicitly using the the env var `DOCKER_DEFAULT_PLATFORM` solves the problems.
+TL;DR Some tools in this workflow depend on older Mono releases, which are not natively supported on e.g. ARM. Mono is able to magically detect the correct host archiecture, even in Rosetta emulated x64-Docker. Until we find a solution for this, users have to rely on VMs like UTM.
 
 
-##### Run the workflow
-```
-nextflow run main.nf --main_raw_spectra_folder <FOLDER_WITH_RAWS_FILES --main_fasta_file <FASTA_FILE> --main_comet_params <COMET_CONFIG> --main_outdir <FOLDER_FOR_RESULTS>
-```
-
-##### For non-x64-hardware like Apple Silicon (M1, M2) use
-Does not work, even with Rosetta due to mono. See section Docker
-
-That’s it! You should now be able to execute `main.nf` and all the other workflows within.
-
-### Arguments
-
-#### Main DDA workflow
-| name | default | used in | description |
-| --- | --- | --- | --- |
-| `--main_raw_spectra_folder` | n/a | `main.nf` | Folder where your raw-files (Thermo) or .d-folders (Bruker) are located |
-| `--main_fasta_file` | n/a | `main.nf` | FASTA file containing your targets and optionally spikein if needed |
-| `--main_comet_params` | `"${baseDir}/example_configurations/high-high.comet.params"` | `main.nf` | Comet paramter file adjusted to your MS and experiment. See [Comet's documentation](https://uwpr.github.io/Comet/parameters/parameters_202401/) for more information. Use `make comet-params` to generate a new parameters file for the used Comet version. |
-| `--spike_ins_table` | `"${baseDir}/example_configurations/spike_ins.csv"` | `main.nf` | CSV with your spike-in peptides information |
-| `--main_outdir` | `"$PWD/results"` | `main.nf` | Directory to store the results |
-| `--search_spike_ins` | `true` | `main.nf` | Set to false if you do not have any spike-in peptides in your sample |
-| `--search_labelled_spikeins` | `true` | `main.nf` | Set to false, if your spike ins are not labelled |
-
-#### Main DIA workflow
-Not ready yet
-
-| name | default | used in | description |
-| --- | --- | --- | --- |
-| `--main_raw_spectra_folder` | `""` | `main_dia.nf` |  |
-| `--main_outdir` | `"$PWD/results"` | `main_dia.nf` |  |
-| `--main_is_isa` | `true` | `main_dia.nf` |  |
-
-#### Subworkflows
-Each subworklow has parameters of its own which are mainly used for scaling. These can be adjusted by simply adding the parameter to the main workflow.
-
-Some of the paramters are not a hard limit but a estimation of how much ressources are used so Nextflow can anticipate how much processes to start. This is especially true for memory usage.
-
-
-#### Subworkflow: Feature detection
-| name | default | used in | description |
-| --- | --- | --- | --- |
-| `--openms_threads` | `8` | `src/feature_detection.nf` | Max. cores to use per feature finder execution |
-| `--min_charge` | `2` | `src/feature_detection.nf` | Minimum charge to consider |
-| `--max_charge` | `5` | `src/feature_detection.nf` | Maximum charge to consider |
-
-#### Subworkflow: Comet identification
-| name | default | used in | description |
-| --- | --- | --- | --- |
-| `--identification__comet_threads` | `8` | `src/identification/comet.nf` | Max. cores to use for Comet |
-| `--identification__comet_mem` | `"10 GB"` | `src/identification/comet.nf` | Max. memory usage anticipated when running Comet. This is not a hard limit. |
-
-#### Subworkflow: File conversions
-| name | default | used in | description |
-| --- | --- | --- | --- |
-| `--file_conversion__thermo_raw_conversion_mem` | `"10 GB"` | `src/io/raw_file_conversion.nf` | Maximum memory usage anticipated when converting a Thermo rawfile. This is not a hard limit. |
-| `--file_conversion__bruker_raw_conversion_mem` | `"5 GB"` | `src/io/raw_file_conversion.nf` | Maximum memory usage anticipated when converting a Bruker .d-folders. This is not a hard limit. |
-
-#### Subworkflow: Inference with PIA
-| name | default | used in | description |
-| --- | --- | --- | --- |
-| `--pia_gb_ram` | `16` | `src/pia.nf` | Maximum memory used by the Java VM and PIA |
-| `--pia_threads` | `8` | `src/pia.nf` | Maximum cores used by PIA |
-
-#### Subworkflow: Spike in retrieval
-| name | default | used in | description |
-| --- | --- | --- | --- |
-| `--max_parallel_xic_extractors` | `available cores / 2` | `src/retrieve_spike_ins.nf` |  |
-
-#### Subworkflow: MS metadata extraction
-| `--ms_run_metrics__thermo_headers` | n/a | `src/metrics/ms_run_metrics.nf` | Set iuf you want only a specific set of headers extracted |
-| `--ms_run_metrics__bruker_headers` | n/a | `src/metrics/ms_run_metrics.nf` | Set iuf you want only a specific set of headers extracted |
-| `--ms_run_metrics__thermo_raw_mem` | `"10 GB"` | `src/metrics/ms_run_metrics.nf` | Maximum memory usage anticipated when extracting headers. Not a hard limit. |
-| `--ms_run_metrics__bruker_raw_mem` | `"1 GB"` | `src/metrics/ms_run_metrics.nf` | Maximum memory usage anticipated when extracting headers. Not a hard limit. |
-| `--ms_run_metrics__mzml_mem` | `"7 GB"` | `src/metrics/ms_run_metrics.nf` | Maximum memory usage anticipated when extracting headers. Not a hard limit. |
-
-## Output
-
-Output is saved in a results folder for each individual file, including all of its step results. The folder `qc_results` within, contains a CSV-table, summarising all generated results. NOTE: This table contains binary blobs and might yield errors, if opening with standard tools, like Excel or LibreOffice. Generated plots (as plotly-html and json)  are also located in this folder.
-
-TODO: The results are saved in a database, which can be later retrieved without executing this workflow again. Please refer to the other provided nextflow-workflows
-
-### Need a GUI?
-
-#### Local
-For local use basic GUI is provided. Just install conda and build the    
-TODO: Instructions   
-activate the environment and run
-```
-streamlit run simple_main_gui.py
-```
-
-#### Want to make it available for your Lab?
+### Need a GUI or an online version?
 Have a look into [MaCWorP](https://github.com/cubimedrub/macworp)! We already added a configuration for integrating McQuaC under `./example_configurations/macworp.json`.
 
 ## Detailed General Workflow
