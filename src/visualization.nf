@@ -13,6 +13,7 @@ workflow visualization {
         output_column_order
         spikein_columns
         output_table_type
+        figure_format
         search_spike_ins
         height_barplots
         width_barplots
@@ -22,15 +23,15 @@ workflow visualization {
         width_ionmaps
 
     main:
-        visualize_results(combined_metrics, main_outdir, rt_unit, output_column_order, spikein_columns, output_table_type, search_spike_ins, height_barplots, width_barplots, height_pca, width_pca, height_ionmaps, width_ionmaps)
+        visualize_results(combined_metrics, main_outdir, rt_unit, output_column_order, spikein_columns, output_table_type, figure_format, search_spike_ins, height_barplots, width_barplots, height_pca, width_pca, height_ionmaps, width_ionmaps)
 
     emit:
         jsons = visualize_results.out[0]
         htmls = visualize_results.out[1]
         tables = visualize_results.out[2]
-        combined_metrics = visualize_results.out[3]
-        fig15_additional_headers = visualize_results.out[5]
-        fig16_BRUKER_calibrants = visualize_results.out[6]
+        fig13_MS1_maps = visualize_results.out[3]
+        fig15_additional_headers = visualize_results.out[4]
+        fig16_BRUKER_calibrants = visualize_results.out[5]
 }
 
 process visualize_results {
@@ -48,6 +49,7 @@ process visualize_results {
     val output_column_order
     val spikein_columns
     val output_table_type
+    val figure_format
     val search_spike_ins
     val height_barplots
     val width_barplots
@@ -69,9 +71,9 @@ process visualize_results {
     """
     if ${search_spike_ins}
     then 
-        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -spikeins -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
+        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -spikeins -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -figure_format ${figure_format} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
     else
-        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
+        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -figure_format ${figure_format} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
     fi
     """
 }

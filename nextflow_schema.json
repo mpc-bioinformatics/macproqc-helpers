@@ -68,6 +68,13 @@
           "format": "file-path",
           "enum": ["csv", "xlsx"]
         },
+        "figure_format": {
+          "type": "string",
+          "description": "Type of output figures (one or more of html and plotly)",
+          "default": "plotly",
+          "format": "file-path",
+          "enum": ["html", "plotly", "html,plotly"]
+        },
         "height_barplots": {
           "type": "integer",
           "default": 700,
