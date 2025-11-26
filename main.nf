@@ -17,6 +17,7 @@ include {retrieve_spike_ins_information} from './src/retrieve_spike_ins.nf'
 include {get_feature_metrics} from './src/feature_detection.nf'
 include {get_headers; get_mzml_infos} from './src/metrics/ms_run_metrics.nf'
 include {combine_metric_hdf5} from './src/io/combine_metric_hdf5.nf'
+include {hdf5_to_mzqc} from './src/mzqc.nf'
 include {output_processing_success} from './src/io/output_processing_success.nf'
 include {visualization} from './src/visualization.nf'
 
@@ -135,7 +136,7 @@ workflow {
 				params.identification__pia_threads,
 				params.identification__pia_gb_ram
 			)
-	}
+		}
 
 		// extract spike-ins information
 		if (params.search_spike_ins) {
@@ -192,6 +193,8 @@ workflow {
 			.groupTuple()
 
 		combined_metrics = combine_metric_hdf5(hdf5s_per_run, params.main_outdir)
+
+		hdf5_to_mzqc(combined_metrics, params.main_outdir)
 
 		// Visualize the results (and move them to the results folder)
 		visualization(
