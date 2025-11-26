@@ -245,15 +245,15 @@ if __name__ == "__main__":
 
         add_entry_to_hdf5(
             f = out_h5, 
-            qc_acc = "LOCAL:01", 
+            qc_acc = "MS:4000202", 
             qc_short_name = "base_peak_intensity_max", 
-            qc_name = "base peak intensity max", 
-            qc_description = "The maximum base peak (highest peak in spectrum) across all MS1 and MS2 spectra.", 
+            qc_name = "base peak intensity maximum", 
+            qc_description = "The maximum base peak intensity (MS:1000505) of all spectra in a single run.", 
             value = base_peak_intensity_max, 
             value_shape = (1,), 
             value_type = "float64", 
-            unit_accession = "", 
-            unit_name = ""
+            unit_accession = "MS:1000043", 
+            unit_name = "intensity unit"
         )
         add_entry_to_hdf5(
             f = out_h5, qc_acc = "LOCAL:03", 
@@ -281,18 +281,17 @@ if __name__ == "__main__":
         base_peak_intensity_max_up_to_xm = max(ms1_ms2_basepeaks[:i-1])
         total_ion_current_max_up_to_xm = max(ms1_ms2_tic[:i-1])
 
-        add_entry_to_hdf5(
+        add_table_in_hdf5(
             f = out_h5, 
-            qc_acc = "LOCAL:02", 
-            qc_short_name = "base_peak_intensity_max_up_to_" + str(base_peak_tic_up_to), 
-            qc_name = "base peak intensity max", 
-            qc_description = "The maximum base peak (highest peak in spectrum) across all MS1 and MS2 spectra up to " + str(base_peak_tic_up_to) + " minutes.", 
-            value = base_peak_intensity_max, 
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "", 
-            unit_name = ""
+            qc_acc = "MS:4000203", 
+            qc_short_name = "base_peak_intensity_max_between", 
+            qc_name = "base peak intensity maxima per time ranges", 
+            qc_description = "The maximum base peak intensity (MS:1000505) of all spectra in a single run in the given retention time ranges. The time windows are specified by the 2nd column defining the start time in seconds and the 3rd column defining the duration in seconds. To define a range from a starting time until the run's end, -1 may be used for the duration with 0 for the start.", 
+            column_names = ["MS:1000505 ! base peak intensity", "UO:0000010 ! second", "NCIT:C25330 ! Duration"],
+            column_data = [[base_peak_intensity_max], [0], [base_peak_tic_up_to*60]], 
+            column_types = ["float64", "float64", "float64"]
         )
+
         add_entry_to_hdf5(
             f = out_h5, qc_acc = "LOCAL:04", 
             qc_short_name = "total_ion_current_max_up_to_" + str(base_peak_tic_up_to), 
