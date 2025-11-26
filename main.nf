@@ -103,9 +103,9 @@ workflow {
 		)
 		pia_report_psm_mztabs = pia_report_files
 				.toList()
-					.transpose()
-					.first()
-					.flatten()
+				.transpose()
+				.first()
+				.flatten()
 		pia_extract_csv = pia_extract_metrics(pia_report_files)
 
 		// search additionally for labelled PSMs
