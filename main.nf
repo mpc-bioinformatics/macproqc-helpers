@@ -99,6 +99,7 @@ workflow {
 			comet_ids.mzids,
 			params.identification__pia_threads,
 			params.identification__pia_gb_ram,
+			params.identification__pia_fdr_threshold,
 			params.identification__pia_prefilter
 		)
 		pia_report_psm_mztabs = pia_report_files
@@ -134,7 +135,8 @@ workflow {
 				comet_labelled_ids.mzids,
 				false,
 				params.identification__pia_threads,
-				params.identification__pia_gb_ram
+				params.identification__pia_gb_ram,
+				params.identification__pia_fdr_threshold
 			)
 	}
 
