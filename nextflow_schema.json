@@ -262,7 +262,7 @@
           "type": "string",
           "description": "Applied method for the generation of decoys, either \"reverse\" or \"shuffle\"",
           "enum": ["reverse", "shuffle"],
-          "default": "shuffle"
+          "default": "reverse"
         },
         "identification__peptide_mass_tolerance_upper": {
           "type": "number",
