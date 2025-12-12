@@ -221,6 +221,7 @@ process prepare_analysis_json {
 
     sed -i 's;"createPSMsets": .*,;"createPSMsets": false,;g' pia_analysis.json
     sed -i 's;"psmLevelFileID": .*,;"psmLevelFileID": 1,;g' pia_analysis.json
+    sed -i 's;"topIdentifications": .*,;"topIdentifications": 1,;g' pia_analysis.json
     sed -i 's;"calculateCombinedFDRScore": .*,;"calculateCombinedFDRScore": false,;g' pia_analysis.json
     if [ ${psm_export} = true ];
     then
