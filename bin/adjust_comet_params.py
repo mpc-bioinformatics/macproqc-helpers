@@ -49,6 +49,11 @@ if __name__ == "__main__":
                 line = "output_mzidentmlfile = 1"
             elif line.startswith("output_percolatorfile"):      # disable percolator output
                 line = "output_percolatorfile = 0"
+            elif line.startswith("max_duplicate_proteins"):     # export all proteins per PSM
+                line = "max_duplicate_proteins = -1"
+            elif line.startswith("equal_I_and_L"):              # I and L are not equal for us here
+                line = "equal_I_and_L = 0"
+
             # now set the variable search parameters
             elif line.startswith("peptide_mass_tolerance_upper"):      
                 line = f"peptide_mass_tolerance_upper = {args.peptide_mass_tolerance_upper}"
