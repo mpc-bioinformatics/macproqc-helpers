@@ -180,8 +180,15 @@ process comet_search {
     path "${mzml.baseName}.mzid", emit: mzids
     path input_fasta, emit: fasta_file
 
+    // Run Comet search and then fix potential issues in the mzid file when no identifications were found
     script:
     """
     comet -P${comet_params_file} -D${input_fasta} ${mzml}
+
+    if ! grep -q '<SpectrumIdentificationResult' "${mzml.baseName}.mzid"; then
+        echo "fixing"
+        sed -i 's;</SpectrumIdentificationResult>;<SpectrumIdentificationResult />;g' "${mzml.baseName}.mzid"
+    fi
+
     """
 }
