@@ -340,6 +340,21 @@ if __name__ == "__main__":
         logger.warning("You have files from both Thermo and Bruker machines. Direct comparison is not possible, no plots will be created.")
         sys.exit(0)
 
+    ### check if any hdf5 file is empty (may happen if raw file was empty)
+    empty_files = []
+    for hdf5 in hdf5s:
+        if len(hdf5.keys()) == 0:
+            logging.basicConfig(filename='to_log_with_nf_later.log', level=logging.DEBUG) # encoding='utf-8',
+            logger.warning(f"HDF5 file {hdf5.filename} is empty and will be excluded from plotting.")
+            empty_files.append(hdf5.filename)
+
+    if len(empty_files) == len(hdf5s):
+        logging.basicConfig(filename='to_log_with_nf_later.log', level=logging.DEBUG) # encoding='utf-8',
+        logger.warning("All provided HDF5 files are empty. No plots will be created.")
+        sys.exit(0)
+
+    hdf5s = [file for file in hdf5s if file.filename not in empty_files]
+
     (single_value_ids, array_value_ids, dataframe_ids) =  get_dataset_types(hdf5s[0])
     
     single_values = get_dataframe_of_single_values(hdf5s, single_value_ids)
