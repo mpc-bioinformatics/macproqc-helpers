@@ -190,8 +190,8 @@ if __name__ == "__main__":
         mzhdf5.add_table_to_hdf5(
             f=out_h5,
             qc_acc="MS:4000210",
-            qc_short_name="vacuum pump pressure",
-            qc_name="The selected extracted Thermo log headers.",
+            qc_short_name="pump_pressure",
+            qc_name="vacuum pump pressure",
             qc_description=(
                 "The vacuum pump pressure of a run, defined by the retention times and respectively applied pressures. "
                 "The values are similar to the ones saved in MS:1000821, but using a tabular representation."
