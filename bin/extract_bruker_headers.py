@@ -3,12 +3,11 @@
 import argparse
 import os
 import sqlite3
-from typing import Any, List
-
-
 import h5py
 import numpy as np
 from alphatims.bruker import TimsTOF
+
+import hdf5_functions as mzhdf5
 
 
 def argparse_setup():
@@ -33,51 +32,6 @@ def argparse_setup():
     parser.add_argument("-calibrants_mobility_tolerance", "-cal_mob_tol", help="The Mobility Tolerance for the calibrants in 1/K0 (1/K0). Default: 0.1", type=float, default=0.1)
 
     return parser.parse_args()
-
-
-def add_entry_to_hdf5(
-    f, qc_acc: str, qc_short_name: str, qc_name: str, qc_description: str, 
-    value, value_shape: tuple, value_type: str, 
-    unit_accession: str=None, unit_name: str=None,
-    ): 
-    """ Adds an entry into the hdf5 file """
-    key = "|".join([qc_acc, qc_short_name])  # ACCESSION|SHORT_DESC
-    if value_type in ("str", h5py.string_dtype()):
-        ds = f.create_dataset(key, shape=value_shape, dtype=h5py.string_dtype(), compression="gzip")
-        ds[:] = value
-    else:
-        f.create_dataset(key, value_shape, dtype=value_type, compression="gzip")
-        if not any([x == 0 for x in value_shape]):
-            # Check if any dimension is 0. If so, we do not write data in it (zero lengthed result).
-            f[key].write_direct(np.array(value, dtype=value_type))
-    
-    f[key].attrs["qc_short_name"] = qc_short_name
-    f[key].attrs["qc_name"] = qc_name
-    f[key].attrs["qc_description"] = qc_description
-    f[key].attrs["unit_accession"] = unit_accession
-    f[key].attrs["unit_name"] = unit_name
-
-
-def add_table_in_hdf5(
-    f, qc_acc: str, qc_short_name: str, qc_name: str, qc_description: str, 
-    column_names: List[str], column_data: List[List[Any]], column_types: List[str]
-    ): 
-    """Adds a table in groups"""
-
-    key = "|".join([qc_acc, qc_short_name])  # ACCESSION|SHORT_DESC
-    table_group = f.create_group(key)
-    table_group.attrs["qc_short_name"] = qc_short_name
-    table_group.attrs["qc_name"] = qc_name
-    table_group.attrs["qc_description"] = qc_description
-    table_group.attrs["column_order"] = "|".join(column_names)
-    
-    for n, d, t in zip (column_names, column_data, column_types): 
-        if t in ("str", h5py.string_dtype()):
-            ds = table_group.create_dataset(n, shape=len(d), dtype=h5py.string_dtype(), compression="gzip")
-            ds[:] = d
-        else:
-            table_group.create_dataset(n, (len(d),), dtype=t, compression="gzip")
-            table_group[n].write_direct(np.array(d, dtype=t))
 
 
 def get_calibrant_info(calibrant_mz, calibrant_mobility, mz_tolerance=10, mobility_tolerance=0.1):
@@ -139,7 +93,6 @@ if __name__ == "__main__":
         except:
             print("WARNING: Property '{}' not found!".format(n))
 
-
     # Open HDF5 file in write mode
     with h5py.File(args.out_hdf5, 'w') as out_h5:
 
@@ -163,11 +116,19 @@ if __name__ == "__main__":
         column_name = list(data_dict.keys()) + ["Time", "MsMsType", "Pressure"]
         column_data = [data_dict[x] for x in column_name[:-3]] + [[x[1] for x in sorted_frame_data], [x[2] for x in sorted_frame_data], [x[3] for x in sorted_frame_data]]
         column_type = ["float64"]*len(column_name)
-        add_table_in_hdf5(
-            out_h5, "BRUKER", "Extracted_Headers", "The extracted Bruker headers, which have been specified prior.", 
-            "This table can contain various columns, like 'Temperature' and more. Depending "
-            "on the input Bruker-file a column may be present in this table.",
-            column_name, column_data, column_type
+
+        mzhdf5.add_table_to_hdf5(
+            f=out_h5,
+            qc_acc="BRUKER",
+            qc_short_name="Extracted_Headers",
+            qc_name="The selected extracted Bruker headers.",
+            qc_description=(
+                "This table can contain various columns, like 'Temperature' and more. "
+                "Depending on the input Bruker-file a column may or may not be present in this table."
+            ),
+            column_names=column_name,
+            column_data=column_data,
+            column_types=column_type,
         )
 
         res.close()
@@ -206,13 +167,18 @@ if __name__ == "__main__":
             times, data = [np.nan], [np.nan]
 
         # TODO it is not clear which format the timestamps and the data has. All we know is that the data is provided in little endian
-        column_name = ["pump_pressure_x_axis", "pump_pressure_y_axis"]
-        column_data = [times, data]
-        column_type = ["float64", "float64"]
-        add_table_in_hdf5(
-            out_h5, "LOCAL:21", "Pump_Pressure", "Pump Pressure",
-            "The pump pressure as a table, containing the coordinates.",
-            column_name, column_data, column_type
+        mzhdf5.add_table_to_hdf5(
+            f=out_h5,
+            qc_acc="MS:4000210",
+            qc_short_name="pump_pressure",
+            qc_name="vacuum pump pressure",
+            qc_description=(
+                "The vacuum pump pressure of a run, defined by the retention times and respectively applied pressures. "
+                "The values are similar to the ones saved in MS:1000821, but using a tabular representation."
+            ),
+            column_names=["MS:1000894 ! retention time", "UO:0000109 ! pressure unit"],
+            column_data=[times, data],
+            column_types=["float64", "float64"],
         )
 
         # Add Calibrants Info:
@@ -224,29 +190,41 @@ if __name__ == "__main__":
             column_type = ["float64", "float64", "float64", "float64", "float64"]
 
             for calibrant in args.calibrants_to_retrieve:
+                mz, mobility = calibrant.split(":", 1)
+                mz = float(mz)
+                mobility = float(mobility)
 
-                    mz, mobility = calibrant.split(":", 1)
-                    mz = float(mz)
-                    mobility = float(mobility)
+                calibrant_rts, calibrant_mzs, calibrant_mobilities = get_calibrant_info(
+                    mz,
+                    mobility,
+                    mz_tolerance=args.calibrants_mz_tolerance,
+                    mobility_tolerance=args.calibrants_mobility_tolerance,
+                )
 
-                    calibrant_rts, calibrant_mzs, calibrant_mobilities = get_calibrant_info(
-                        mz, mobility,
-                        mz_tolerance=args.calibrants_mz_tolerance,
-                        mobility_tolerance=args.calibrants_mobility_tolerance
-                        )
+                column_data[0] = np.append(column_data[0], [[mz] * len(calibrant_rts)])
+                column_data[1] = np.append(
+                    column_data[1], [[mobility] * len(calibrant_rts)]
+                )
+                column_data[2] = np.append(column_data[2], [calibrant_rts])
+                column_data[3] = np.append(column_data[3], [calibrant_mzs])
+                column_data[4] = np.append(column_data[4], [calibrant_mobilities])
 
-                    column_data[0] = np.append(column_data[0], [[mz]*len(calibrant_rts)])
-                    column_data[1] = np.append(column_data[1], [[mobility]*len(calibrant_rts)])
-                    column_data[2] = np.append(column_data[2], [calibrant_rts])
-                    column_data[3] = np.append(column_data[3], [calibrant_mzs])
-                    column_data[4] = np.append(column_data[4], [calibrant_mobilities])
-
-
-
-            add_table_in_hdf5(
-                out_h5, "BRUKER", "Calibrants", "Calibrants",
-                "Extracted Calibrants from the Bruker measurement, which have been specified prior. This table contains, the following columns: calibrant_mz, calibrant_mobility --> The observed calibrant mz and mobility AND observed_calibrant_rt, observed_calibrant_mz, observed_calibrant_mobility --> The observed calibrant retention time, mz and mobility.",
-                column_name, column_data, column_type
+            mzhdf5.add_table_to_hdf5(
+                f=out_h5,
+                qc_acc="BRUKE_calibrants",
+                qc_short_name="bruker_calibrants",
+                qc_name="Bruker calibrant information",
+                qc_description=(
+                    "Extraction of selected calibrants from the Bruker measurement. "
+                    "This table contains the following columns: calibrant_mz, calibrant_mobility --> The observed calibrant mz and mobility AND observed_calibrant_rt, observed_calibrant_mz, observed_calibrant_mobility --> The observed calibrant retention time, mz and mobility."
+                ),
+                column_names=column_name,
+                column_data=column_data,
+                column_types=column_type,
             )
         except:
-            raise ValueError("The calibrant '{}'could not be retrieved. Is it in the correct format?  ('MZ:Mobility')".format(args.calibrants_to_retrieve))
+            raise ValueError(
+                "The calibrant '{}'could not be retrieved. Is it in the correct format?  ('MZ:Mobility')".format(
+                    args.calibrants_to_retrieve
+                )
+            )
