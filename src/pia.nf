@@ -186,7 +186,7 @@ process compile_pia_xmls {
 
     script:
     """
-    pia -Xms2g -Xmx${pia_gb_ram}g --threads ${pia_threads} --compile -o ${id_basename}.pia.xml ${identifications}
+    pia -Xms2g -Xmx${pia_gb_ram}g --threads ${pia_threads} --compile -o '${id_basename}.pia.xml' '${identifications}'
     """
 }
 
@@ -315,7 +315,7 @@ process pia_run_analysis {
     sed -i 's;"peptideExportFile": .*;"peptideExportFile": "peptides.csv",;g' \${jsonfile}
     sed -i 's;"proteinExportFile": .*;"proteinExportFile": "proteins.mzTab",;g' \${jsonfile}
 
-    pia -Xms2g -Xmx${pia_gb_ram}g --threads ${pia_threads} \${jsonfile} ${pia_xml}
+    pia -Xms2g -Xmx${pia_gb_ram}g --threads ${pia_threads} \${jsonfile} '${pia_xml}'
     """
 }
 
