@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 from datetime import datetime
+import os
 import re
 import json
 from typing import Any, Dict, List
@@ -16,7 +17,7 @@ accession_regex = r"([A-Z0-9]+:[A-Z0-9]+) ! .+"  # regular expression for an acc
 
 def argparse_setup():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-hdf5", help="The hdf5 file created by McQuaC", required=True)
+    parser.add_argument("-hdf5", nargs="+", help="The hdf5 file(s) created by McQuaC", required=True)
     parser.add_argument(
         "-mzqc_out", help="Output path to the generated mzQC file", required=True
     )
@@ -82,33 +83,14 @@ def table_from_hdf5_group(group: h5py.Group) -> Dict[str, List[Any]]:
     return ret_dict
 
 
-if __name__ == "__main__":
-    args = argparse_setup()
-
-    # TODO: add these as param from the original file, or better add into the hdf5 file!
-    input_filename = "EXII07156std.raw"
+def process_hdf5_to_run_quality(hdf5_path: str, analysis_software: List) -> qc.RunQuality:
+    """Process a single HDF5 file and return a RunQuality object."""
+    input_filename = os.path.splitext(os.path.basename(hdf5_path))[0]
     fileFormat = qc.CvParameter(accession="MS:1000563", name="Thermo RAW format")
-
-    comet_version = "v2024.01.0"
-
-    # we could add information about our search engine
-    comet_mzqc = qc.AnalysisSoftware(
-        accession="MS:1002251",
-        name="Comet",
-        description="Comet open-source sequence search engine developed at the University of Washington.",
-        version=comet_version,
-        uri="https://uwpr.github.io/Comet/",
-    )
-
-    # TODO: and should add information about the feature detection as well
-    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
-
-    # TODO: and about MCQuaC itself
-    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
 
     input_file_start_time_epoch = 0
     quality_metrics = []
-    with h5py.File(args.hdf5, "r") as hdf5_file:
+    with h5py.File(hdf5_path, "r") as hdf5_file:
 
         # go through the entries in the hdf5 file and get all the metrics
         for key in hdf5_file.keys():
@@ -145,9 +127,36 @@ if __name__ == "__main__":
     )
 
     meta = qc.MetaDataParameters(
-        inputFiles=[input_file_raw], analysisSoftware=[comet_mzqc]
+        inputFiles=[input_file_raw], analysisSoftware=analysis_software
     )
-    rq = qc.RunQuality(metadata=meta, qualityMetrics=quality_metrics)
+    return qc.RunQuality(metadata=meta, qualityMetrics=quality_metrics)
+
+
+if __name__ == "__main__":
+    args = argparse_setup()
+
+    comet_version = "v2024.01.0"
+
+    # we could add information about our search engine
+    comet_mzqc = qc.AnalysisSoftware(
+        accession="MS:1002251",
+        name="Comet",
+        description="Comet open-source sequence search engine developed at the University of Washington.",
+        version=comet_version,
+        uri="https://uwpr.github.io/Comet/",
+    )
+
+    # TODO: and should add information about the feature detection as well
+    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
+
+    # TODO: and about MCQuaC itself
+    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
+
+    run_qualities = []
+    for hdf5_path in args.hdf5:
+        rq = process_hdf5_to_run_quality(hdf5_path, [comet_mzqc])
+        run_qualities.append(rq)
+
     cv_ms = qc.ControlledVocabulary(
         name="Proteomics Standards Initiative Mass Spectrometry Ontology",
         version="4.1.197",
@@ -157,7 +166,7 @@ if __name__ == "__main__":
     mzqc = qc.MzQcFile(
         version="1.0.0",
         creationDate=datetime.now().isoformat(),
-        runQualities=[rq],
+        runQualities=run_qualities,
         setQualities=[],
         controlledVocabularies=[cv_ms],
     )
