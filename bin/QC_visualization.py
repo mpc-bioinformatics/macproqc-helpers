@@ -139,10 +139,13 @@ def get_dataframes_values(
         filename = Path(hdf.filename).stem
         for df_id in dataframe_ids:#
             short_name = df_id.split("|")[-1]
+            #print(hdf[df_id].attrs["column_order"])
             column_order = hdf[df_id].attrs["column_order"].split("|")
             df = pd.DataFrame(dict(hdf[df_id]))
             df = df[column_order]
+            df.columns = df.columns.str.split(' ! ').str[-1]   # remove everything before "!" in the column names (ontology IDs)
             dataframes[filename][short_name] = df
+            
 
     return dataframes
 
@@ -199,11 +202,11 @@ def assemble_result_table(
             df_table["filename"] = hdf5_file_names
        
         elif metric in single_value_ids_short:
-            if metric == "timestamp":
+            if metric == "startTime":
                 ## convert timestamp to something human-readable
-                x = [datetime.fromtimestamp(x, timezone.utc) for x in single_values["timestamp"]]
+                x = [datetime.fromtimestamp(x, timezone.utc) for x in single_values["startTime"]]
                 df_table[metric] = x
-                df_table['timestamp'] = df_table['timestamp'].dt.tz_localize(None)
+                df_table['startTime'] = df_table['startTime'].dt.tz_localize(None)
             else:
                 df_table[metric] = single_values[metric]
         
@@ -240,21 +243,27 @@ def assemble_result_table(
                 df_table_spike = pd.DataFrame()
                 for file in hdf5_file_names:
                     spike_data = dataframes[file][metric]
+                    #print(spike_data.columns)
                     
                     if RT_unit == "min":
-                        spike_data["RT_at_Maximum_Intensity"] = spike_data["RT_at_Maximum_Intensity"]/60
-                        spike_data["Delta_to_expected_RT"] = spike_data["Delta_to_expected_RT"]/60
+                        spike_data["retention time"] = spike_data["retention time"]/60
+                        spike_data["predicted retention time"] = spike_data["predicted retention time"]/60
                     
-                    spike_in_list = spike_data['Spike-in'].astype(str).tolist()
+                    spike_data["Delta_to_expected_RT"] = spike_data["retention time"] - spike_data["predicted retention time"]
+                    
+                    spike_in_list = spike_data['proforma peptidoform sequence'].astype(str).tolist()
                     #spike_name = [s.split("_")[1] for s in spike_in_list]
-                    mz = [s.split("_")[3] for s in spike_in_list]
-                    spike_data["mz"] = ["MZ_" + x for x in mz]
-                    column_names_spike = ["SPIKE_" + x for x in spike_data["mz"].astype(str).tolist()]
+                    #mz = [s.split("_")[3] for s in spike_in_list]
+                    #spike_data["mz"] = ["MZ_" + x for x in mz]
+                    #column_names_spike = ["SPIKE_" + x for x in spike_data["mz"].astype(str).tolist()]
+                    # TODO: information on mz is missing now 
+                    
+                    spikein_columns = spike_data.columns.to_list()
                     
                     ## for each spike-in, extract the data
                     df_tmp = pd.DataFrame()  ## data frame for each spike-in and each file
                     for index, row in spike_data.iterrows():
-                        column_names = [column_names_spike[index] + "_" + x for x in spikein_columns]    
+                        column_names = [spike_in_list[index] + "_" + x for x in spikein_columns]    
                         df_tmp_tmp = pd.DataFrame(columns = column_names)
                         df_tmp_tmp.loc[0] = spike_data.loc[index, spikein_columns].values
 
@@ -266,11 +275,13 @@ def assemble_result_table(
                 df_table = pd.concat([df_table, df_table_spike], axis = 1)
 
                     
-            else:
+            else: # charge state and missed cleavages dataframes
                 df_tmp = pd.DataFrame()
                 for file in hdf5_file_names:
                     df_tmp_tmp = dataframes[file][metric]
-                    df_tmp = pd.concat([df_tmp, df_tmp_tmp], axis = 0)
+                    # df_wide = df_tmp_tmp.pivot(index=0, columns=df_tmp_tmp.columns[0], values=df_tmp_tmp.columns[1])
+                    df_wide = df_tmp_tmp.pivot_table(columns=df_tmp_tmp.columns[0], values=df_tmp_tmp.columns[1], aggfunc='first')
+                    df_tmp = pd.concat([df_tmp, df_wide], axis = 0)
                 columns = [metric + "_" + str(col) for col in df_tmp.columns]
                 df_tmp.reset_index(drop=True, inplace=True)
                 df_tmp.columns = columns
@@ -305,7 +316,7 @@ def argparse_setup():
     parser.add_argument("-RT_unit", help="Unit of the retention time, either sec for seconds or min for minutes.", default = "sec")
     parser.add_argument("-fig_show", help = "Show figures, e.g. for debugging?", default = False, action = "store_true")
     parser.add_argument("-output_column_order", help = "Order of columns in the output table", default = "", type = str)
-    parser.add_argument("-spikein_columns", help = "Columns of the spike-in dataframes that should end up in the result table", default = "Maximum_Intensity,RT_at_Maximum_Intensity,PSMs,Delta_to_expected_RT", type = str)
+    parser.add_argument("-spikein_columns", help = "Columns of the spike-in dataframes that should end up in the result table", default = "MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT", type = str)
     parser.add_argument("-height_barplots", help = "Height of the barplots in pixels", default = 700, type = int) # in pixels
     parser.add_argument("-width_barplots", help = "Width of the barplots in pixels", default = 0, type = int) # default 0: flexible width, in pixels
     parser.add_argument("-height_pca", help = "Height of the PCA plots in pixels", default = 1000, type = int) # in pixels
@@ -364,7 +375,7 @@ if __name__ == "__main__":
     array_values = get_array_values(hdf5s, array_value_ids)
     array_value_ids_short = [s.split("|")[-1] for s in array_value_ids]
 
-    ### remove Thermo headers with "Extracted_Log_Headers" from dataframe_ids (cannot be plotted because only single values)
+    ### remove Thermo headers with "Extracted_Log_Headers" from dataframe_ids (cannot be plotted because they contain only single values)
     dataframe_ids = [x for x in dataframe_ids if x != "THERMO_LOG|Extracted_Log_Headers"]
 
     dataframes = get_dataframes_values(hdf5s, dataframe_ids)
@@ -408,7 +419,7 @@ if __name__ == "__main__":
     if args.output_column_order == "":  ### take default column order
         metric_list = [
             "filename",
-            "timestamp",
+            "startTime",
             "RT_range",
             "nr_MS1",
             "nr_MS2",
@@ -419,15 +430,15 @@ if __name__ == "__main__":
             "base_peak_intensity_max_up_to_",
             "total_ion_current_max_up_to_",
             "MS2_prec_charge_fraction",
-            "RT_MS1_quartiles",
-            "RT_MS2_quartiles",
-            "RT_TIC_quartiles",
+            "RT_MS1_quantiles",
+            "RT_MS2_quantiles",
+            "RT_TIC_quantiles",
             "MS1_freq_max",
             "MS2_freq_max",
-            "MS1_density_quartiles",
-            "MS2_density_quartiles",
-            "MS1_TIC_change_quartiles",
-            "MS1_TIC_quartiles",
+            "MS1_density_quantiles",
+            "MS2_density_quantiles",
+            "MS1_TIC_change_quantiles",
+            "MS1_TIC_quantiles",
             "nr_PSMs",
             "nr_peptides",
             "nr_protein_groups",
@@ -436,7 +447,7 @@ if __name__ == "__main__":
             "PSM_missed_cleavage_counts",
             "nr_features",
             "nr_ident_features",
-            "features_charge",
+            "features_charges",
             "ident_features_charge",
             "spike_in_metrics"
         ]
@@ -579,9 +590,9 @@ if __name__ == "__main__":
     tic_df2 = pd.concat(tic_df)
     
     if args.RT_unit == "min":
-        tic_df2["retention_time"] = tic_df2["retention_time"]/60
+        tic_df2["scond"] = tic_df2["second"]/60
    
-    fig04 = px.line(tic_df2, x="retention_time", y="TIC", color = "filename", title = "TIC overlay")
+    fig04 = px.line(tic_df2, x="second", y="total ion current", color = "filename", title = "TIC overlay")
     fig04.update_traces(line=dict(width=0.5))
     fig04.update_yaxes(exponentformat="E") 
     fig04.update_layout(height = int(args.height_barplots))
@@ -610,7 +621,7 @@ if __name__ == "__main__":
         df_tmp = pd.DataFrame()
         df_tmp["filename"] = [file]*4
         df_tmp["variable"] = ["RT_TIC_Q_" + str(i) for i in range(1,5)]
-        df_tmp["value"] = array_values[file]["RT_TIC_quartiles"]
+        df_tmp["value"] = array_values[file]["RT_TIC_quantiles"]
         RT_TIC_Q_df_list.append(df_tmp)
     df_pl05_long = pd.concat(RT_TIC_Q_df_list)
     #df_pl05_long = df_pl05_long.sort_values(by = "filename", ascending=True)  
@@ -639,7 +650,7 @@ if __name__ == "__main__":
         df_tmp = pd.DataFrame()
         df_tmp["filename"] = [file]*4
         df_tmp["variable"] = ["RT_MS1_Q_" + str(i) for i in range(1,5)]
-        df_tmp["value"] = array_values[file]["RT_MS1_quartiles"]
+        df_tmp["value"] = array_values[file]["RT_MS1_quantiles"]
         RT_MS1_Q_df_list.append(df_tmp)
     df_pl06_long = pd.concat(RT_MS1_Q_df_list)
     #df_pl06_long = df_pl06_long.sort_values(by = "filename", ascending=True)  
@@ -666,7 +677,7 @@ if __name__ == "__main__":
         df_tmp = pd.DataFrame()
         df_tmp["filename"] = [file]*4
         df_tmp["variable"] = ["RT_MS2_Q_" + str(i) for i in range(1,5)]
-        df_tmp["value"] = array_values[file]["RT_MS2_quartiles"]
+        df_tmp["value"] = array_values[file]["RT_MS2_quantiles"]
         RT_MS2_Q_df_list.append(df_tmp)
     df_pl07_long = pd.concat(RT_MS2_Q_df_list)
     
@@ -690,14 +701,20 @@ if __name__ == "__main__":
     Prec_charge_df_list = []
     for file in hdf5_file_names:
         df_tmp = dataframes[file]["MS2_prec_charge_fraction"]
-        df_tmp.rename(columns = {"0": "unknown", df_tmp.columns[-1]: "more"}, inplace = True)
-        df_tmp_long = df_tmp.melt()
-        df_tmp_long["filename"] = [file]*df_tmp.shape[1]
-        Prec_charge_df_list.append(df_tmp_long)
+        df_tmp['charge state'] = df_tmp['charge state'].replace(max(df_tmp['charge state']), 'more')
+        df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+ 
+        # df_tmp.rename(columns = {"0": "unknown", df_tmp.columns[-1]: "more"}, inplace = True)
+        
+        #print(df_tmp)
+        #df_tmp_long = df_tmp.melt()
+        #print(df_tmp_long)
+        df_tmp["filename"] = [file]*df_tmp.shape[0]
+        Prec_charge_df_list.append(df_tmp)
     df_pl08_long = pd.concat(Prec_charge_df_list)
-    df_pl08_long.rename(columns = {"variable": "Prec_charge", "value": "fraction"}, inplace = True)
+    #df_pl08_long.rename(columns = {"variable": "Prec_charge", "value": "fraction"}, inplace = True)
     
-    fig08 = px.bar(df_pl08_long, x="filename", y="fraction", color="Prec_charge", title = "Charge states of precursors")
+    fig08 = px.bar(df_pl08_long, x="filename", y="fraction", color="charge state", title = "Charge states of precursors")
     fig08.update_xaxes(tickangle=-90)
     fig08.update_layout(height = int(args.height_barplots))
     if args.width_barplots > 0:
@@ -718,14 +735,14 @@ if __name__ == "__main__":
         PSM_charge_df_list = []
         for file in hdf5_file_names:
             df_tmp = dataframes[file]["PSM_charge_fractions"]
-            df_tmp.rename(columns = {"0": "unknown", df_tmp.columns[-1]: "more"}, inplace = True)
-            df_tmp_long = df_tmp.melt()
-            df_tmp_long["filename"] = [file]*df_tmp.shape[1]
-            PSM_charge_df_list.append(df_tmp_long)
+            df_tmp['charge state'] = df_tmp['charge state'].replace(max(df_tmp['charge state']), 'more')
+            df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+            df_tmp["filename"] = [file]*df_tmp.shape[0]
+            PSM_charge_df_list.append(df_tmp)
         df_pl09_long = pd.concat(PSM_charge_df_list)
-        df_pl09_long.rename(columns = {"variable": "PSM_charge", "value": "fraction"}, inplace = True)
+        #df_pl09_long.rename(columns = {"variable": "PSM_charge", "value": "fraction"}, inplace = True)
         
-        fig09 = px.bar(df_pl09_long, x="filename", y="fraction", color="PSM_charge", title = "Charge states of PSMs")
+        fig09 = px.bar(df_pl09_long, x="filename", y="fraction", color="charge state", title = "Charge states of PSMs")
         fig09.update_xaxes(tickangle=-90)
         fig09.update_layout(height = int(args.height_barplots))
         if args.width_barplots > 0:
@@ -760,16 +777,17 @@ if __name__ == "__main__":
         PSM_missed_df_list = []
         for file in hdf5_file_names:
             df_tmp = dataframes[file]["PSM_missed_cleavage_counts"]
-            df_tmp.rename(columns = {df_tmp.columns[-1]: "more"}, inplace = True)
-            df_tmp_long = df_tmp.melt()
-            df_tmp_long["filename"] = [file]*df_tmp.shape[1]
-            PSM_missed_df_list.append(df_tmp_long)
+            df_tmp['number of missed cleavages'] = df_tmp['number of missed cleavages'].replace(max(df_tmp['number of missed cleavages']), 'more')
+            #df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+            df_tmp["filename"] = [file]*df_tmp.shape[0]
+            PSM_missed_df_list.append(df_tmp)
         df_pl10_long = pd.concat(PSM_missed_df_list)
         df_pl10_long_perc = df_pl10_long.copy()
-        df_pl10_long_perc["value"] = df_pl10_long["value"]/df_pl10_long.groupby("filename")["value"].transform("sum")
-        df_pl10_long_perc.rename(columns = {"variable": "PSM_missed_cleavages", "value": "Fraction"}, inplace = True)
+        # calculate fraction instead of absolute counts
+        df_pl10_long_perc["Number of Occurrences"] = df_pl10_long["Number of Occurrences"]/df_pl10_long.groupby("filename")["Number of Occurrences"].transform("sum")
+        df_pl10_long_perc.rename(columns = {"Number of Occurrences": "Fraction"}, inplace = True)
         
-        fig10 = px.bar(df_pl10_long_perc, x="filename", y="Fraction", color="PSM_missed_cleavages", title = "Fraction of missed cleavages for PSMs")
+        fig10 = px.bar(df_pl10_long_perc, x="filename", y="Fraction", color="number of missed cleavages", title = "Fraction of missed cleavages for PSMs")
         fig10.update_xaxes(tickangle=-90)
         fig10.update_layout(height = int(args.height_barplots))
         if args.width_barplots > 0:
@@ -802,7 +820,7 @@ if __name__ == "__main__":
     # (only plotted if we have more than one raw file)
 
     ## Calculate scaling of timestamps to colour the points in the PCA plot (percentage between min and max time):
-    timestamps = single_values["timestamp"].values.flatten().tolist()
+    timestamps = single_values["startTime"].values.flatten().tolist()
     mintime = min(timestamps)
     maxtime = max(timestamps)
     
@@ -824,15 +842,15 @@ if __name__ == "__main__":
         "base_peak_intensity_max",
         "total_ion_current_max",
         "MS2_prec_charge_fraction",
-        "RT_MS1_quartiles",
-        "RT_MS2_quartiles",
-        "RT_TIC_quartiles",
+        "RT_MS1_quantiles",
+        "RT_MS2_quantiles",
+        "RT_TIC_quantiles",
         "MS1_freq_max",
         "MS2_freq_max",
-        "MS1_density_quartiles",
-        "MS2_density_quartiles",
-        "MS1_TIC_change_quartiles",
-        "MS1_TIC_quartiles"]
+        "MS1_density_quantiles",
+        "MS2_density_quantiles",
+        "MS1_TIC_change_quantiles",
+        "MS1_TIC_quantiles"]
 
         df_pl11 = assemble_result_table(
             metric_list = metric_list_PCA_raw, 
@@ -844,6 +862,9 @@ if __name__ == "__main__":
             dataframes = dataframes,
             dataframe_ids_short = dataframe_ids_short
         )
+ 
+        print(dataframe_ids_short)
+        print(df_pl11.columns)
  
         df_pl11 = df_pl11.fillna(value = 0) # impute missig values by 0
         ## scale the data before computing the PCA
@@ -952,7 +973,7 @@ if __name__ == "__main__":
             "PSM_missed_cleavage_counts",
             "nr_features",
             "nr_ident_features",
-            "features_charge",
+            "features_charges",
             "ident_features_charge"]
         
         df_pl12 = assemble_result_table(
