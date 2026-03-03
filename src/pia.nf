@@ -46,7 +46,7 @@ workflow pia_analysis {
         pia_all_report_files = pia_run_analysis(basename_to_pia_xmls, analysis_json, pia_threads, pia_gb_ram, "mzTab")
 
         // TODO: remove this ugly hack! implement basenames and results further downstream correctly!
-        pia_all_report_files = pia_rename_files_HOTFIX_CHANGE(pia_all_report_files.psms, pia_all_report_files.peptides, pia_all_report_files.proteins)
+        pia_all_report_files = pia_rename_files(pia_all_report_files.psms, pia_all_report_files.peptides, pia_all_report_files.proteins)
 
         return_files = pia_all_report_files.psms.collect()
             .concat(pia_all_report_files.peptides.collect())
@@ -343,7 +343,7 @@ process pia_extract_csv {
 //
 // TODO: GET RID OF THIS PROCESS and implement the file and basenames correctly further downstream
 //
-process pia_rename_files_HOTFIX_CHANGE {
+process pia_rename_files {
     label 'mcquac_image'
 
     cpus 1
