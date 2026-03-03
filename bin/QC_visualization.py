@@ -139,14 +139,11 @@ def get_dataframes_values(
         filename = Path(hdf.filename).stem
         for df_id in dataframe_ids:#
             short_name = df_id.split("|")[-1]
-            #print(hdf[df_id].attrs["column_order"])
             column_order = hdf[df_id].attrs["column_order"].split("|")
             df = pd.DataFrame(dict(hdf[df_id]))
             df = df[column_order]
             df.columns = df.columns.str.split(' ! ').str[-1]   # remove everything before "!" in the column names (ontology IDs)
             dataframes[filename][short_name] = df
-            
-
     return dataframes
 
 
@@ -211,9 +208,19 @@ def assemble_result_table(
                 df_table[metric] = single_values[metric]
         
         ### match base peak intensity and total ion current with upper time limit
-        elif metric in ["base_peak_intensity_max_up_to_", "total_ion_current_max_up_to_"]:
-                matching_metrics = [element for element in single_value_ids_short if metric in element]
-                df_table[matching_metrics] = single_values[matching_metrics]
+        elif metric == "base_peak_intensity_maxima_per_time_range":
+            values = []
+            for file in hdf5_file_names:
+                values.append(dataframes[file][metric]["base peak intensity"][0])
+            df_table[metric] = values
+            
+            #df_table[metric] = dataframes["base_peak_intensity_maxima_per_time_range"] #["base peak intensity"][0]
+        elif metric == "total_ion_current_maxima_per_time_ranges":
+            values = []
+            for file in hdf5_file_names:
+                values.append(dataframes[file][metric]["total ion current"][0])
+            df_table[metric] = values
+            #df_table[metric] = dataframes["total_ion_current_maxima_per_time_range"] # ["total ion current"][0]
         
         elif metric in array_value_ids_short:
             df_tmp = pd.DataFrame()
@@ -243,21 +250,15 @@ def assemble_result_table(
                 df_table_spike = pd.DataFrame()
                 for file in hdf5_file_names:
                     spike_data = dataframes[file][metric]
-                    #print(spike_data.columns)
                     
                     if RT_unit == "min":
                         spike_data["retention time"] = spike_data["retention time"]/60
                         spike_data["predicted retention time"] = spike_data["predicted retention time"]/60
                     
                     spike_data["Delta_to_expected_RT"] = spike_data["retention time"] - spike_data["predicted retention time"]
-                    
+                    #utf8 decoding of the proforma peptidoform sequence
+                    spike_data['proforma peptidoform sequence'] = spike_data['proforma peptidoform sequence'].apply(lambda x: x.decode('utf8') if isinstance(x, bytes) else x)
                     spike_in_list = spike_data['proforma peptidoform sequence'].astype(str).tolist()
-                    #spike_name = [s.split("_")[1] for s in spike_in_list]
-                    #mz = [s.split("_")[3] for s in spike_in_list]
-                    #spike_data["mz"] = ["MZ_" + x for x in mz]
-                    #column_names_spike = ["SPIKE_" + x for x in spike_data["mz"].astype(str).tolist()]
-                    # TODO: information on mz is missing now 
-                    
                     spikein_columns = spike_data.columns.to_list()
                     
                     ## for each spike-in, extract the data
@@ -380,11 +381,7 @@ if __name__ == "__main__":
 
     dataframes = get_dataframes_values(hdf5s, dataframe_ids)
     dataframe_ids_short = [s.split("|")[-1] for s in dataframe_ids]
-
-
-            
-            
-
+    
 ####################################################################################################
     # parameters
 
@@ -427,8 +424,8 @@ if __name__ == "__main__":
             "accumulated_MS2_TIC",
             "base_peak_intensity_max",
             "total_ion_current_max",
-            "base_peak_intensity_max_up_to_",
-            "total_ion_current_max_up_to_",
+            "base_peak_intensity_maxima_per_time_range",
+            "total_ion_current_maxima_per_time_ranges",
             "MS2_prec_charge_fraction",
             "RT_MS1_quantiles",
             "RT_MS2_quantiles",
@@ -704,11 +701,6 @@ if __name__ == "__main__":
         df_tmp['charge state'] = df_tmp['charge state'].replace(max(df_tmp['charge state']), 'more')
         df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
  
-        # df_tmp.rename(columns = {"0": "unknown", df_tmp.columns[-1]: "more"}, inplace = True)
-        
-        #print(df_tmp)
-        #df_tmp_long = df_tmp.melt()
-        #print(df_tmp_long)
         df_tmp["filename"] = [file]*df_tmp.shape[0]
         Prec_charge_df_list.append(df_tmp)
     df_pl08_long = pd.concat(Prec_charge_df_list)
@@ -862,9 +854,6 @@ if __name__ == "__main__":
             dataframes = dataframes,
             dataframe_ids_short = dataframe_ids_short
         )
- 
-        print(dataframe_ids_short)
-        print(df_pl11.columns)
  
         df_pl11 = df_pl11.fillna(value = 0) # impute missig values by 0
         ## scale the data before computing the PCA
