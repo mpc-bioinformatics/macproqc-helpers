@@ -1185,11 +1185,44 @@ if __name__ == "__main__":
 
 
 
-################################################################################################
-## Fig 15: all other headers by Thermo or Bruker
+###############################################################################################
+ ### Fig 15: Boxplot of PSM ppm error quartiles
+ 
+    PSM_error_df_list = []
+    for file in hdf5_file_names:
+        df_tmp = pd.DataFrame()
+        df_tmp["filename"] = [file]
+        df_tmp["filtered_psms_ppm_error_Q_1"] = [array_values[file]["filtered_psms_ppm_error_quartiles"][0]]
+        df_tmp["filtered_psms_ppm_error_Q_2"] = [array_values[file]["filtered_psms_ppm_error_quartiles"][1]]
+        df_tmp["filtered_psms_ppm_error_Q_3"] = [array_values[file]["filtered_psms_ppm_error_quartiles"][2]]
+        PSM_error_df_list.append(df_tmp)
+    df_pl15 = pd.concat(PSM_error_df_list)
 
-    if not os.path.exists(output_path + os.sep + "fig15_additional_headers"):
-        os.makedirs(output_path + os.sep + "fig15_additional_headers")
+    fig15 = go.Figure()
+    fig15.add_trace(go.Box(q1=df_pl15["filtered_psms_ppm_error_Q_1"], median=df_pl15["filtered_psms_ppm_error_Q_2"],
+                    q3=df_pl15["filtered_psms_ppm_error_Q_3"], mean = single_values[["filtered_psms_ppm_error_mean"]], sd = single_values[["filtered_psms_ppm_error_sigma"]], name="PSM ppm error", x= df_pl15["filename"]))
+    fig15.update_layout(title = "Boxplot of PSM ppm error quartiles", yaxis_title = "PSM ppm error", xaxis_title = "sample")
+    fig15.update_layout(height = int(args.height_barplots))
+    if args.width_barplots > 0:
+        fig15.update_layout(width = int(args.width_barplots))
+
+    if fig_show:
+        fig15.show()
+    if fig_plotly:
+        with open(output_path + os.sep + "fig15_PSM_error_boxplots.plotly.json", "w") as json_file:
+            json_file.write(plotly.io.to_json(fig15))
+    if fig_html:
+        fig15.write_html(file = output_path + os.sep + "fig15_PSM_error_boxplots.html", auto_open = False)
+
+
+
+
+
+################################################################################################
+## Fig 16: all other headers by Thermo or Bruker
+
+    if not os.path.exists(output_path + os.sep + "fig16_additional_headers"):
+        os.makedirs(output_path + os.sep + "fig16_additional_headers")
 
     add_headers = []
     for file in hdf5_file_names:
@@ -1263,46 +1296,46 @@ if __name__ == "__main__":
             
                 if not df_tmp.empty:
                     #df_tmp = df_tmp.sort_values(by = ["filename", "x"], ascending=True)  
-                    fig15 = px.line(df_tmp, x="x", y="y", color = "filename", title = display_header)
-                    fig15.update_traces(line=dict(width=0.5))
-                    fig15.update_yaxes(exponentformat="E") 
-                    fig15.update_layout(height = int(args.height_barplots))
+                    fig16 = px.line(df_tmp, x="x", y="y", color = "filename", title = display_header)
+                    fig16.update_traces(line=dict(width=0.5))
+                    fig16.update_yaxes(exponentformat="E") 
+                    fig16.update_layout(height = int(args.height_barplots))
                     if args.width_barplots > 0:
-                        fig15.update_layout(width = int(args.width_barplots))
-                    fig15.update_layout(yaxis_title = display_header)
+                        fig16.update_layout(width = int(args.width_barplots))
+                    fig16.update_layout(yaxis_title = display_header)
                     if args.RT_unit == "sec":
-                        fig15.update_layout(xaxis_title = "Time (sec)")
+                        fig16.update_layout(xaxis_title = "Time (sec)")
                     elif args.RT_unit == "min":
-                        fig15.update_layout(xaxis_title = "Time (min)")
+                        fig16.update_layout(xaxis_title = "Time (min)")
                     
                 else: 
-                    fig15 = go.Figure()
-                    fig15.add_annotation(
+                    fig16 = go.Figure()
+                    fig16.add_annotation(
                         x=0.5,
                         y=0.5,
                         text="No '{}' available!".format(display_header),
                         showarrow=False,
                         font=dict(size=14)
                     )
-                    fig15.update_layout(
+                    fig16.update_layout(
                         width=1500,
                         height=1000,
                         title="Empty Plot"
                     )
 
                 if fig_show:
-                    fig15.show()
+                    fig16.show()
                 if fig_plotly:
-                    with open(output_path + os.sep + "fig15_additional_headers" + os.sep + "{}.plotly.json".format(re.sub('\W+','', display_header)), "w") as json_file:
-                        json_file.write(plotly.io.to_json(fig15))
+                    with open(output_path + os.sep + "fig16_additional_headers" + os.sep + "{}.plotly.json".format(re.sub('\W+','', display_header)), "w") as json_file:
+                        json_file.write(plotly.io.to_json(fig16))
                 if fig_html:
-                    fig15.write_html(file = output_path + os.sep + "fig15_additional_headers" + os.sep + "{}.html".format(re.sub('\W+','', display_header)), auto_open = False)
+                    fig16.write_html(file = output_path + os.sep + "fig16_additional_headers" + os.sep + "{}.html".format(re.sub('\W+','', display_header)), auto_open = False)
 
 ################################################################################################
-## Fig 16: all other headers by Thermo or Bruker      
+## Fig 17: all other headers by Thermo or Bruker      
         
-    if not os.path.exists(output_path + os.sep + "fig16_BRUKER_calibrants"):
-        os.makedirs(output_path + os.sep + "fig16_BRUKER_calibrants")
+    if not os.path.exists(output_path + os.sep + "fig17_BRUKER_calibrants"):
+        os.makedirs(output_path + os.sep + "fig17_BRUKER_calibrants")
         
     df_calibrants = pd.DataFrame()
     for file in hdf5_file_names:
@@ -1337,38 +1370,38 @@ if __name__ == "__main__":
 
             title_tmp = "Calibrant " + str(i) + " m/z: " + str(mz_tmp) + ", ion mobility: " + str(mobility_tmp)
 
-            fig16a = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mz", color = "filename", title = title_tmp)
-            fig16a.update_traces(line=dict(width=0.5))
-            fig16a.add_hline(y=mz_tmp)
-            fig16a.update_layout(height = int(args.height_barplots))
+            fig17a = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mz", color = "filename", title = title_tmp)
+            fig17a.update_traces(line=dict(width=0.5))
+            fig17a.add_hline(y=mz_tmp)
+            fig17a.update_layout(height = int(args.height_barplots))
             if args.width_barplots > 0:
-                fig16a.update_layout(width = int(args.width_barplots))
+                fig17a.update_layout(width = int(args.width_barplots))
             if args.RT_unit == "sec":
-                fig16a.update_layout(xaxis_title = "Time (sec)")
+                fig17a.update_layout(xaxis_title = "Time (sec)")
             elif args.RT_unit == "min":
-                fig16a.update_layout(xaxis_title = "Time (min)")
+                fig17a.update_layout(xaxis_title = "Time (min)")
             if fig_plotly:
-                with open(output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16a_Calibrant_mz_" + str(i) + ".plotly.json", "w") as json_file:
-                    json_file.write(plotly.io.to_json(fig16a))
+                with open(output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17a_Calibrant_mz_" + str(i) + ".plotly.json", "w") as json_file:
+                    json_file.write(plotly.io.to_json(fig17a))
             if fig_html:
-                fig16a.write_html(file = output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16a_Calibrant_mz_" + str(i) + ".html", auto_open = False)
+                fig17a.write_html(file = output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17a_Calibrant_mz_" + str(i) + ".html", auto_open = False)
 
             
-            fig16b = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mobility", color = "filename", title = title_tmp)
-            fig16b.update_traces(line=dict(width=0.5))
-            fig16b.add_hline(y=mobility_tmp)
-            fig16b.update_layout(height = int(args.height_barplots))
+            fig17b = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mobility", color = "filename", title = title_tmp)
+            fig17b.update_traces(line=dict(width=0.5))
+            fig17b.add_hline(y=mobility_tmp)
+            fig17b.update_layout(height = int(args.height_barplots))
             if args.width_barplots > 0:
-                fig16b.update_layout(width = int(args.width_barplots))
+                fig17b.update_layout(width = int(args.width_barplots))
             if args.RT_unit == "sec":
-                fig16b.update_layout(xaxis_title = "Time (sec)")
+                fig17b.update_layout(xaxis_title = "Time (sec)")
             elif args.RT_unit == "min":
-                fig16b.update_layout(xaxis_title = "Time (min)")
+                fig17b.update_layout(xaxis_title = "Time (min)")
             if fig_plotly:
-                with open(output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16b_Calibrant_ionmobility" + str(i) + ".plotly.json", "w") as json_file:
-                    json_file.write(plotly.io.to_json(fig16b))
+                with open(output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17b_Calibrant_ionmobility" + str(i) + ".plotly.json", "w") as json_file:
+                    json_file.write(plotly.io.to_json(fig17b))
             if fig_html:
-                fig16b.write_html(file = output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16b_Calibrant_ionmobility" + str(i) + ".html", auto_open = False)
+                fig17b.write_html(file = output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17b_Calibrant_ionmobility" + str(i) + ".html", auto_open = False)
 
                 
                 
