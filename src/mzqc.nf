@@ -34,6 +34,6 @@ process hdf5_to_mzqc_export {
 
     script:
     """
-    hdf5_to_mzqc.py -hdf5 "${hdf5_files}" -mzqc_out "${hdf5_files.baseName}.mzqc"
+    hdf5_to_mzqc.py -hdf5 ${hdf5_files} -mzqc_out combined_metrics.mzqc
     """
 }
