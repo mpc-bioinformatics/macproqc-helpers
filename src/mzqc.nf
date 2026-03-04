@@ -10,10 +10,10 @@ workflow hdf5_to_mzqc {
         output_folder
     
     main:
-       mzqc_file = hdf5_to_mzqc_export(hdf5_files, output_folder)
+        mzqc_files = hdf5_to_mzqc_export(hdf5_files.flatten(), output_folder)
 
     emit:
-        mzqc_file.mzqc
+        mzqc_files.mzqc
 }
 
 
@@ -34,6 +34,6 @@ process hdf5_to_mzqc_export {
 
     script:
     """
-    hdf5_to_mzqc.py -hdf5 ${hdf5_files} -mzqc_out combined_metrics.mzqc
+    hdf5_to_mzqc.py -hdf5 ${hdf5_files} -mzqc_out ${hdf5_files.baseName}.mzqc
     """
 }

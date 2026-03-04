@@ -17,14 +17,13 @@ accession_regex = r"([A-Z0-9]+:[A-Z0-9]+) ! .+"  # regular expression for an acc
 
 def argparse_setup():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-hdf5", nargs="+", help="The hdf5 file(s) created by McQuaC", required=True)
-    parser.add_argument(
-        "-mzqc_out", help="Output path to the generated mzQC file", required=True
+    parser.add_argument("-hdf5", help="Path to the hdf5 file created by McQuaC", required=True)
+    parser.add_argument("-mzqc_out", help="Output path for the generated mzQC file", required=True
     )
     return parser.parse_args()
 
 
-def hdf5_entry_to_mzqc_entry(hdf5_file: h5py.File, key: str) -> qc.QualityMetric:
+def hdf5_entry_to_mzqc_metric(hdf5_file: h5py.File, key: str) -> qc.QualityMetric:
     """Convert an entry from the hdf5 file to an mzQC element"""
 
     # split the key (i.e. name of table in hdf) to get the basic accession and name
@@ -85,18 +84,18 @@ def table_from_hdf5_group(group: h5py.Group) -> Dict[str, List[Any]]:
 
 def process_hdf5_to_run_quality(hdf5_path: str, analysis_software: List) -> qc.RunQuality:
     """Process a single HDF5 file and return a RunQuality object."""
+
     input_filename = os.path.splitext(os.path.basename(hdf5_path))[0]
     fileFormat = qc.CvParameter(accession="MS:1000563", name="Thermo RAW format")
 
     input_file_start_time_epoch = 0
     quality_metrics = []
     with h5py.File(hdf5_path, "r") as hdf5_file:
-
         # go through the entries in the hdf5 file and get all the metrics
         for key in hdf5_file.keys():
             if re.fullmatch(psi_accession_regex, key):
                 # only try to parse PSI-MS accessions
-                qm = hdf5_entry_to_mzqc_entry(hdf5_file, key)
+                qm = hdf5_entry_to_mzqc_metric(hdf5_file, key)
 
                 # only use "valid" metrics for now
                 if qm.accession.startswith("MS"):
@@ -146,27 +145,25 @@ if __name__ == "__main__":
         uri="https://uwpr.github.io/Comet/",
     )
 
-    # TODO: and should add information about the feature detection as well
-    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
-
-    # TODO: and about MCQuaC itself
-    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
-
-    run_qualities = []
-    for hdf5_path in args.hdf5:
-        rq = process_hdf5_to_run_quality(hdf5_path, [comet_mzqc])
-        run_qualities.append(rq)
-
     cv_ms = qc.ControlledVocabulary(
         name="Proteomics Standards Initiative Mass Spectrometry Ontology",
         version="4.1.197",
         uri="https://github.com/HUPO-PSI/psi-ms-CV/blob/master/psi-ms.obo",
     )
 
+    # TODO: and should add information about the feature detection as well
+    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
+
+    # TODO: and about MCQuaC itself
+    # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
+
+    # create one mzQC file per HDF5 file
+    rq = process_hdf5_to_run_quality(args.hdf5, [comet_mzqc])
+
     mzqc = qc.MzQcFile(
         version="1.0.0",
         creationDate=datetime.now().isoformat(),
-        runQualities=run_qualities,
+        runQualities=[rq],
         setQualities=[],
         controlledVocabularies=[cv_ms],
     )
