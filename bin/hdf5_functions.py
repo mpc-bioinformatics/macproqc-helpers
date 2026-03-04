@@ -23,7 +23,8 @@ def add_entry_to_hdf5(
 ) -> None:
     """Adds a single value entry into the hdf5 file"""
 
-    key = "|".join([qc_acc, qc_short_name])  # ACCESSION|SHORT_DESC
+    key = f"{qc_acc} ! {qc_short_name}"  # like in OBO for terms, the key is "ACCESSION ! SHORT_NAME"
+
     if value_type in ("str", h5py.string_dtype()):
         ds = f.create_dataset(
             key, shape=value_shape, dtype=h5py.string_dtype(), compression="gzip"
@@ -54,7 +55,8 @@ def add_table_to_hdf5(
 ):
     """Adds a table with an arbitrary number of columns to the HDF5 file."""
 
-    key = "|".join([qc_acc, qc_short_name])  # ACCESSION|SHORT_DESC
+    key = f"{qc_acc} ! {qc_short_name}"  # like in OBO for terms, the key is "ACCESSION ! SHORT_NAME"
+
     table_group = f.create_group(key)
     table_group.attrs["qc_short_name"] = qc_short_name
     table_group.attrs["qc_name"] = qc_name
