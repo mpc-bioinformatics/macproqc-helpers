@@ -21,24 +21,25 @@ workflow visualization {
         width_pca
         height_ionmaps
         width_ionmaps
+        visualization_mem
 
     main:
-        visualize_results(combined_metrics, main_outdir, rt_unit, output_column_order, spikein_columns, output_table_type, figure_format, search_spike_ins, height_barplots, width_barplots, height_pca, width_pca, height_ionmaps, width_ionmaps)
+        visualize_results(combined_metrics, main_outdir, rt_unit, output_column_order, spikein_columns, output_table_type, figure_format, search_spike_ins, height_barplots, width_barplots, height_pca, width_pca, height_ionmaps, width_ionmaps, visualization_mem)
 
     emit:
         jsons = visualize_results.out[0]
         htmls = visualize_results.out[1]
         tables = visualize_results.out[2]
         fig13_MS1_maps = visualize_results.out[3]
-        fig15_additional_headers = visualize_results.out[4]
-        fig16_BRUKER_calibrants = visualize_results.out[5]
+        fig16_additional_headers = visualize_results.out[4]
+        fig17_BRUKER_calibrants = visualize_results.out[5]
 }
 
 process visualize_results {
     label 'mcquac_image'
 
     cpus 2
-    memory '16.GB'
+    memory { visualization_mem }
 
     publishDir "${main_outdir}/qc_results", mode:'copy'
 
@@ -57,14 +58,15 @@ process visualize_results {
     val width_pca
     val height_ionmaps
     val width_ionmaps
+    val visualization_mem
 
     output:
     path("*.json"), optional: true
     path("*.html"), optional: true
     path("*.${output_table_type}"), optional: true
     path("fig13_MS1_map"), optional: true
-    path("fig15_additional_headers"), optional: true
-    path("fig16_BRUKER_calibrants"), optional: true
+    path("fig16_additional_headers"), optional: true
+    path("fig17_BRUKER_calibrants"), optional: true
     path("to_log_with_nf_later.log"), optional: true
 
     script:

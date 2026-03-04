@@ -43,7 +43,8 @@ workflow {
 			params.height_pca,
 			params.width_pca,
 			params.height_ionmaps,
-			params.width_ionmaps
+			params.width_ionmaps,
+			params.visualization_mem
 		)
 	} else {
 		// complete workflow
@@ -211,7 +212,8 @@ workflow {
 			params.height_pca,
 			params.width_pca,
 			params.height_ionmaps,
-			params.width_ionmaps
+			params.width_ionmaps, 
+			params.visualization_mem
 		)
 
 		output_processing_success(
