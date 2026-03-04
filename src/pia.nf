@@ -124,16 +124,23 @@ workflow pia_analysis_psm_only {
 }
 
 /**
- * Extracts the QC metrics from the PIA results and writes them into a HFD5
+ * Extracts the QC metrics from the PIA results and writes them into a HFD5.
+ * If peptides_table is true, the peptide tables will be saved to the results.
  *
  * @return extracted hdf5 metrics written into the HFD5 file
  */
 workflow pia_extract_metrics {
     take:
         pia_results
+        peptides_table
+        output_folder
 
     main:
         extract_csv = pia_extract_csv(pia_results)
+
+        if (peptides_table) {
+            save_peptide_files(pia_results, output_folder)
+        }   
     
     emit:
         extract_csv
@@ -336,6 +343,30 @@ process pia_extract_csv {
     """
     outfile="${psm_results.name.take(psm_results.name.lastIndexOf('-piaExport-PSM.mzTab'))}-pia_extraction.hdf5"
     extract_from_pia_output.py --pia_PSMs ${psm_results} --pia_peptides ${peptide_results} --pia_proteins ${protein_results} --out_hdf5 \${outfile}
+    """
+}
+
+
+process save_peptide_files {
+    label 'mcquac_image'
+
+    cpus 1
+    memory "1.GB"
+
+    publishDir path: { "${output_folder}" }, mode: 'move', overwrite: true
+
+    input:
+    tuple path(psm_results), path(peptide_results), path(protein_results)
+    val output_folder
+
+    output:
+    path "peptides/${peptide_results.name}"
+
+    script:
+    """
+    # create a symlink to save
+    mkdir peptides
+    cp ${peptide_results} peptides/${peptide_results.name}
     """
 }
 

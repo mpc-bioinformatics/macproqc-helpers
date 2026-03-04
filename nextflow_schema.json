@@ -337,6 +337,11 @@
           "description": "Perform pre-filtering on PSM level before protein and peptide inference in PIA, use this threshold for pre-filtering. Set to 0 to disable pre-filtering.",
           "minimum": 0,
           "maximum": 1
+        },
+        "identification__peptides_table": {
+          "type": "boolean",
+          "default": false,
+          "description": "If this is true, for each analysed MS run one peptide table will be exported."
         }
       }
     }

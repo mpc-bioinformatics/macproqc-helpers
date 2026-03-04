@@ -107,7 +107,7 @@ workflow {
 				.transpose()
 				.first()
 				.flatten()
-		pia_extract_csv = pia_extract_metrics(pia_report_files)
+		pia_extract_csv = pia_extract_metrics(pia_report_files, params.identification__peptides_table, params.main_outdir)
 
 		// search additionally for labelled PSMs
 		if (params.search_labelled_spikeins) {
