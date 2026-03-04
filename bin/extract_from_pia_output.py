@@ -157,12 +157,12 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         miss_count_2    = psm_df[psm_df['opt_global_missed_cleavages'] == 2]['PSM_ID'].count()
         miss_count_3    = psm_df[psm_df['opt_global_missed_cleavages'] == 3]['PSM_ID'].count()
         miss_count_more = psm_df[psm_df['opt_global_missed_cleavages'] > 3]['PSM_ID'].count()
-        miss_counts = [miss_count_0, miss_count_1, miss_count_2, miss_count_3, miss_count_more]
+        miss_counts = np.array([miss_count_0, miss_count_1, miss_count_2, miss_count_3, miss_count_more], dtype=np.float64)
 
     else:
         PSM_count = 0
         charge_fractions = [0, 0, 0, 0, 0, 0]
-        miss_counts = [0, 0, 0, 0, 0]
+        miss_counts = miss_counts = np.array([0, 0, 0, 0, 0], dtype=np.float64)
         ppm_error = [np.nan]
 
     mzhdf5.add_entry_to_hdf5(
@@ -194,22 +194,23 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         column_types=["uint16", "float64"],
     )
 
+    miss_fractions = miss_counts / miss_counts.sum() if miss_counts.sum() > 0 else miss_counts
     mzhdf5.add_table_to_hdf5(
         f=out_hdf5,
-        qc_acc="MS:4000180",
-        qc_short_name="PSM_missed_cleavage_counts",
-        qc_name="table of missed cleavage counts",
+        qc_acc="MS:4000215",
+        qc_short_name="PSM_missed_cleavages_fractions",
+        qc_name="missed cleavages fractions",
         qc_description=(
-            "The number of identified peptides with corresponding number of missed cleavages after user-defined acceptance criteria are applied. "
-            "The number of missed cleavages per peptide is given in the 'number of missed cleavages' column, the respective count of such peptides identified in the 'Number of Occurrences' column. "
-            "The highest 'missed cleavages' row is to be interpreted as that number of missed cleavages or higher. "
+            "The fraction of identified peptides with corresponding number of missed cleavages after user-defined acceptance criteria are applied. "
+            "The number of missed cleavages per peptide is given in the 'number of missed cleavages' column, the respective fraction of such peptides identified in the 'fraction' column. "
+            "The highest 'missed cleavages' row is to be interpreted as that number of missed cleavages or higher."
         ),
         column_names=[
             "MS:1003044 ! number of missed cleavages",
-            "NCIT:C150827 ! Number of Occurrences",
+            "UO:0000191 ! fraction",
         ],
-        column_data=[[0, 1, 2, 3, 4], miss_counts],
-        column_types=["uint16", "uint64"],
+        column_data=[[0, 1, 2, 3, 4], miss_fractions],
+        column_types=["uint16", "float64"],
     )
 
     mzhdf5.add_entry_to_hdf5(
