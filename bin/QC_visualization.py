@@ -29,6 +29,8 @@ import matplotlib.pyplot as plt
 
 pio.renderers.default = "png"
 
+hdf5_accession_separator = "!"
+
 
 def get_dataset_types(hdf: h5py.File) -> Tuple[Tuple[str], Tuple[str], Tuple[str]]:
     """
@@ -84,7 +86,7 @@ def get_dataframe_of_single_values(
     """
     single_value_data: Dict[str, List[Any]] = {"filename": [Path(hdf.filename).stem for hdf in hdfs]}
     for sv_id in single_value_ids:
-        short_name = sv_id.split("|")[-1]
+        short_name = sv_id.split(hdf5_accession_separator)[-1].strip()
         single_value_data[short_name] = [hdf[sv_id][0] for hdf in hdfs]
     return pd.DataFrame(single_value_data)
 
@@ -110,7 +112,7 @@ def get_array_values(
     for hdf in hdfs:
         filename = Path(hdf.filename).stem
         for array_id in array_value_ids:
-            short_name = array_id.split("|")[-1]
+            short_name = array_id.split(hdf5_accession_separator)[-1].strip()
             array_value_data[filename][short_name] = hdf[array_id][:]
 
     return array_value_data
@@ -138,7 +140,7 @@ def get_dataframes_values(
     for hdf in hdfs:
         filename = Path(hdf.filename).stem
         for df_id in dataframe_ids:#
-            short_name = df_id.split("|")[-1]
+            short_name = df_id.split(hdf5_accession_separator)[-1].strip()
             column_order = hdf[df_id].attrs["column_order"].split("|")
             df = pd.DataFrame(dict(hdf[df_id]))
             df = df[column_order]
@@ -342,9 +344,9 @@ if __name__ == "__main__":
     thermo_files = []
     bruker_files = []
     for hdf5 in hdf5s:
-        if 'THERMO|Extracted_Headers' in hdf5.keys():
+        if 'THERMO ! Extracted_Headers' in hdf5.keys():
             thermo_files.append(hdf5)
-        elif 'BRUKER|Extracted_Headers' in hdf5.keys():
+        elif 'BRUKER ! Extracted_Headers' in hdf5.keys():
             bruker_files.append(hdf5)
             
     logger = logging.getLogger(__name__)
@@ -371,16 +373,16 @@ if __name__ == "__main__":
     (single_value_ids, array_value_ids, dataframe_ids) =  get_dataset_types(hdf5s[0])
     
     single_values = get_dataframe_of_single_values(hdf5s, single_value_ids)
-    single_value_ids_short = [s.split("|")[-1] for s in single_value_ids]
+    single_value_ids_short = [s.split(hdf5_accession_separator)[-1].strip() for s in single_value_ids]
 
     array_values = get_array_values(hdf5s, array_value_ids)
-    array_value_ids_short = [s.split("|")[-1] for s in array_value_ids]
+    array_value_ids_short = [s.split(hdf5_accession_separator)[-1].strip() for s in array_value_ids]
 
     ### remove Thermo headers with "Extracted_Log_Headers" from dataframe_ids (cannot be plotted because they contain only single values)
-    dataframe_ids = [x for x in dataframe_ids if x != "THERMO_LOG|Extracted_Log_Headers"]
+    dataframe_ids = [x for x in dataframe_ids if x != "THERMO_LOG ! Extracted_Log_Headers"]
 
     dataframes = get_dataframes_values(hdf5s, dataframe_ids)
-    dataframe_ids_short = [s.split("|")[-1] for s in dataframe_ids]
+    dataframe_ids_short = [s.split(hdf5_accession_separator)[-1].strip() for s in dataframe_ids]
     
 ####################################################################################################
     # parameters
