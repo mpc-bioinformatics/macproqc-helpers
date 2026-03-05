@@ -153,15 +153,25 @@ if __name__ == "__main__":
 
             data_dict[name] = [x[1]if x[1] is not None else np.nan for x in sorted(metadata, key=lambda x: x[0])]
 
-        # Special CASE: Get MS/MS-Type, Pressure and Measure/RetentionTime
-        res = cur.execute(
-            "SELECT Id, Time, MsMsType, Pressure from Frames"
-        )
-        frame_data = res.fetchall()
-        sorted_frame_data = sorted(frame_data, key=lambda x: x[0])
+        # Special CASE: Get MS/MS-Type (and Pressure if available)
+        try:
+            res = cur.execute(
+                "SELECT Id, Time, MsMsType, Pressure from Frames"
+            )
+            frame_data = res.fetchall()
+            sorted_frame_data = sorted(frame_data, key=lambda x: x[0])
+            column_name = list(data_dict.keys()) + ["Time", "MsMsType", "Pressure"]
+            column_data = [data_dict[x] for x in column_name[:-3]] + [[x[1] for x in sorted_frame_data], [x[2] for x in sorted_frame_data], [x[3] for x in sorted_frame_data]]
+        except:
+            # No Pressure information available, skipping
+            res = cur.execute(
+                "SELECT Id, Time, MsMsType from Frames"
+            )
+            frame_data = res.fetchall()
+            sorted_frame_data = sorted(frame_data, key=lambda x: x[0])
+            column_name = list(data_dict.keys()) + ["Time", "MsMsType"]
+            column_data = [data_dict[x] for x in column_name[:-2]] + [[x[1] for x in sorted_frame_data], [x[2] for x in sorted_frame_data]]
 
-        column_name = list(data_dict.keys()) + ["Time", "MsMsType", "Pressure"]
-        column_data = [data_dict[x] for x in column_name[:-3]] + [[x[1] for x in sorted_frame_data], [x[2] for x in sorted_frame_data], [x[3] for x in sorted_frame_data]]
         column_type = ["float64"]*len(column_name)
         add_table_in_hdf5(
             out_h5, "BRUKER", "Extracted_Headers", "The extracted Bruker headers, which have been specified prior.", 
@@ -174,7 +184,7 @@ if __name__ == "__main__":
         cur.close()
         con.close()
 
-        # SPECIAL Case about PumpPreasure and so on
+        # SPECIAL Case about PumpPressure
         # NC_Pump_Pressure
         con = sqlite3.connect(args.d_folder + os.sep + "chromatography-data.sqlite")
         cur = con.cursor()
