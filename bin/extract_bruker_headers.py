@@ -24,6 +24,9 @@ def argparse_setup():
         "TOF_DeviceTempCurrentValue1",
         "TOF_DeviceTempCurrentValue2"
     ])
+    parser.add_argument("-frame_headers_to_parse", "-fhtp", help="The Frame Headers to parse. Can be applied multiple times. If a header is not available it will be skipped.", action="append", default=[
+        "Pressure",
+    ])
     parser.add_argument("-calibrants_to_retrieve", "-calibrants", help="Calibrants which should be retrieved. In the format MZ:Mobility. E.G.: 922.00978:1.1895", action="append", default=[
         "622.0290:0.9913",
         "922.009798:1.1895",
@@ -114,6 +117,8 @@ def get_calibrant_info(calibrant_mz, calibrant_mobility, mz_tolerance=10, mobili
 if __name__ == "__main__":
 
     args = argparse_setup()
+    args.d_folder = "/home/luxii/Desktop/raws/TIM0002803std_S1-A1_1_3068.d/"
+    args.out_hdf5 = "/home/luxii/Desktop/raws/delme.hdf5"
     con = sqlite3.connect(args.d_folder + os.sep + "analysis.tdf")
     cur = con.cursor()
 
@@ -153,25 +158,30 @@ if __name__ == "__main__":
 
             data_dict[name] = [x[1]if x[1] is not None else np.nan for x in sorted(metadata, key=lambda x: x[0])]
 
-        # Special CASE: Get MS/MS-Type (and Pressure if available)
-        try:
-            res = cur.execute(
-                "SELECT Id, Time, MsMsType, Pressure from Frames"
-            )
-            frame_data = res.fetchall()
-            sorted_frame_data = sorted(frame_data, key=lambda x: x[0])
-            column_name = list(data_dict.keys()) + ["Time", "MsMsType", "Pressure"]
-            column_data = [data_dict[x] for x in column_name[:-3]] + [[x[1] for x in sorted_frame_data], [x[2] for x in sorted_frame_data], [x[3] for x in sorted_frame_data]]
-        except:
-            # No Pressure information available, skipping
-            res = cur.execute(
-                "SELECT Id, Time, MsMsType from Frames"
-            )
-            frame_data = res.fetchall()
-            sorted_frame_data = sorted(frame_data, key=lambda x: x[0])
-            column_name = list(data_dict.keys()) + ["Time", "MsMsType"]
-            column_data = [data_dict[x] for x in column_name[:-2]] + [[x[1] for x in sorted_frame_data], [x[2] for x in sorted_frame_data]]
+        # Special CASE: Get MS/MS-Type (and additional headers if available from table Frames)
+        frame_columns = [x[1] for x in cur.execute("PRAGMA table_info(Frames);").fetchall()]
+        headers_to_retrieve = ["Id", "Time", "MsMsType"]  # Standard headers which always will be extracted.
+        
+        for h in args.frame_headers_to_parse:
+            if h in frame_columns:
+                if h not in headers_to_retrieve:
+                    headers_to_retrieve.append(h)
+            else:
+                print("WARNING: Frame Header '{}' not found!".format(h))
 
+        res = cur.execute(
+            "SELECT " + ", ".join(headers_to_retrieve) + " from Frames"
+        )
+        frame_data = res.fetchall()
+        sorted_frame_data = sorted(frame_data, key=lambda x: x[0])
+        
+        # Add to final result table
+        column_name = list(data_dict.keys()) + headers_to_retrieve
+        column_data = [data_dict[x] for x in data_dict.keys()]
+        for c in headers_to_retrieve[:]:
+            column_data.append(
+                [x[headers_to_retrieve.index(c)] for x in sorted_frame_data]
+            )
         column_type = ["float64"]*len(column_name)
         add_table_in_hdf5(
             out_h5, "BRUKER", "Extracted_Headers", "The extracted Bruker headers, which have been specified prior.", 
