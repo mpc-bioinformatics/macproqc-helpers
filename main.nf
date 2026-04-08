@@ -98,14 +98,16 @@ workflow {
 		pia_report_files = pia_analysis_full(
 			comet_ids.mzids,
 			params.identification__pia_threads,
-			params.identification__pia_gb_ram
+			params.identification__pia_gb_ram,
+			params.identification__pia_fdr_threshold,
+			params.identification__pia_prefilter
 		)
 		pia_report_psm_mztabs = pia_report_files
 				.toList()
-					.transpose()
-					.first()
-					.flatten()
-		pia_extract_csv = pia_extract_metrics(pia_report_files)
+				.transpose()
+				.first()
+				.flatten()
+		pia_extract_csv = pia_extract_metrics(pia_report_files, params.identification__peptides_table, params.main_outdir)
 
 		// search additionally for labelled PSMs
 		if (params.search_labelled_spikeins) {
@@ -133,7 +135,8 @@ workflow {
 				comet_labelled_ids.mzids,
 				false,
 				params.identification__pia_threads,
-				params.identification__pia_gb_ram
+				params.identification__pia_gb_ram,
+				params.identification__pia_fdr_threshold
 			)
 	}
 

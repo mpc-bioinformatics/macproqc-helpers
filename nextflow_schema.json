@@ -262,7 +262,7 @@
           "type": "string",
           "description": "Applied method for the generation of decoys, either \"reverse\" or \"shuffle\"",
           "enum": ["reverse", "shuffle"],
-          "default": "shuffle"
+          "default": "reverse"
         },
         "identification__peptide_mass_tolerance_upper": {
           "type": "number",
@@ -323,6 +323,25 @@
           "default": 16,
           "description": "Allowed RAM to be used by PIA, in GB",
           "minimum": 4
+        },
+        "identification__pia_fdr_threshold": {
+          "type": "number",
+          "default": 0.01,
+          "description": "The FDR threshold used for filtering PSMs by PIA, typically set to 0.01 (1%).",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "identification__pia_prefilter": {
+          "type": "number",
+          "default": 0.05,
+          "description": "Perform pre-filtering on PSM level before protein and peptide inference in PIA, use this threshold for pre-filtering. Set to 0 to disable pre-filtering.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "identification__peptides_table": {
+          "type": "boolean",
+          "default": false,
+          "description": "If this is true, for each analysed MS run one peptide table will be exported."
         }
       }
     }
