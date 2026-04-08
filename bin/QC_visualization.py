@@ -29,6 +29,8 @@ import matplotlib.pyplot as plt
 
 pio.renderers.default = "png"
 
+hdf5_accession_separator = "!"
+
 
 def get_dataset_types(hdf: h5py.File) -> Tuple[Tuple[str], Tuple[str], Tuple[str]]:
     """
@@ -84,7 +86,7 @@ def get_dataframe_of_single_values(
     """
     single_value_data: Dict[str, List[Any]] = {"filename": [Path(hdf.filename).stem for hdf in hdfs]}
     for sv_id in single_value_ids:
-        short_name = sv_id.split("|")[-1]
+        short_name = sv_id.split(hdf5_accession_separator)[-1].strip()
         single_value_data[short_name] = [hdf[sv_id][0] for hdf in hdfs]
     return pd.DataFrame(single_value_data)
 
@@ -110,7 +112,7 @@ def get_array_values(
     for hdf in hdfs:
         filename = Path(hdf.filename).stem
         for array_id in array_value_ids:
-            short_name = array_id.split("|")[-1]
+            short_name = array_id.split(hdf5_accession_separator)[-1].strip()
             array_value_data[filename][short_name] = hdf[array_id][:]
 
     return array_value_data
@@ -138,12 +140,12 @@ def get_dataframes_values(
     for hdf in hdfs:
         filename = Path(hdf.filename).stem
         for df_id in dataframe_ids:#
-            short_name = df_id.split("|")[-1]
+            short_name = df_id.split(hdf5_accession_separator)[-1].strip()
             column_order = hdf[df_id].attrs["column_order"].split("|")
             df = pd.DataFrame(dict(hdf[df_id]))
             df = df[column_order]
+            df.columns = df.columns.str.split(' ! ').str[-1]   # remove everything before "!" in the column names (ontology IDs)
             dataframes[filename][short_name] = df
-
     return dataframes
 
 
@@ -157,7 +159,8 @@ def assemble_result_table(
     dataframes: Dict[str, Dict[str, pd.DataFrame]],
     dataframe_ids_short: List[str],
     spikein_columns: List[str] = ["Maximum_Intensity", "RT_at_Maximum_Intensity", "PSMs", "Delta_to_expected_RT"], 
-    RT_unit: str = "sec"
+    RT_unit: str = "sec", 
+    spike_ins_table: str = None,
     ) -> pd.DataFrame:
     """
     Assemble the result table
@@ -186,6 +189,8 @@ def assemble_result_table(
         Must be a subset of ["Maximum_Intensity", "RT_at_Maximum_Intensity", "PSMs", "Delta_to_expected_RT"].
     RT_unit : str
         Unit of the retention time, either sec for seconds or min for minutes.
+    spike_ins_table : str
+        Path to the spike-ins table file. Will be used to map the spike-in information to the name of the spike-in.
         
     Returns
     -------
@@ -199,18 +204,28 @@ def assemble_result_table(
             df_table["filename"] = hdf5_file_names
        
         elif metric in single_value_ids_short:
-            if metric == "timestamp":
+            if metric == "startTime":
                 ## convert timestamp to something human-readable
-                x = [datetime.fromtimestamp(x, timezone.utc) for x in single_values["timestamp"]]
+                x = [datetime.fromtimestamp(x, timezone.utc) for x in single_values["startTime"]]
                 df_table[metric] = x
-                df_table['timestamp'] = df_table['timestamp'].dt.tz_localize(None)
+                df_table['startTime'] = df_table['startTime'].dt.tz_localize(None)
             else:
                 df_table[metric] = single_values[metric]
         
         ### match base peak intensity and total ion current with upper time limit
-        elif metric in ["base_peak_intensity_max_up_to_", "total_ion_current_max_up_to_"]:
-                matching_metrics = [element for element in single_value_ids_short if metric in element]
-                df_table[matching_metrics] = single_values[matching_metrics]
+        elif metric == "base_peak_intensity_maxima_per_time_range":
+            values = []
+            for file in hdf5_file_names:
+                values.append(dataframes[file][metric]["base peak intensity"][0])
+            df_table[metric] = values
+            
+            #df_table[metric] = dataframes["base_peak_intensity_maxima_per_time_range"] #["base peak intensity"][0]
+        elif metric == "total_ion_current_maxima_per_time_ranges":
+            values = []
+            for file in hdf5_file_names:
+                values.append(dataframes[file][metric]["total ion current"][0])
+            df_table[metric] = values
+            #df_table[metric] = dataframes["total_ion_current_maxima_per_time_range"] # ["total ion current"][0]
         
         elif metric in array_value_ids_short:
             df_tmp = pd.DataFrame()
@@ -242,19 +257,26 @@ def assemble_result_table(
                     spike_data = dataframes[file][metric]
                     
                     if RT_unit == "min":
-                        spike_data["RT_at_Maximum_Intensity"] = spike_data["RT_at_Maximum_Intensity"]/60
-                        spike_data["Delta_to_expected_RT"] = spike_data["Delta_to_expected_RT"]/60
+                        spike_data["retention time"] = spike_data["retention time"]/60
+                        spike_data["predicted retention time"] = spike_data["predicted retention time"]/60
                     
-                    spike_in_list = spike_data['Spike-in'].astype(str).tolist()
-                    #spike_name = [s.split("_")[1] for s in spike_in_list]
-                    mz = [s.split("_")[3] for s in spike_in_list]
-                    spike_data["mz"] = ["MZ_" + x for x in mz]
-                    column_names_spike = ["SPIKE_" + x for x in spike_data["mz"].astype(str).tolist()]
+                    spike_data["Delta_to_expected_RT"] = spike_data["retention time"] - spike_data["predicted retention time"]
+                    #utf8 decoding of the proforma peptidoform sequence
+                    spike_data['proforma peptidoform sequence'] = spike_data['proforma peptidoform sequence'].apply(lambda x: x.decode('utf8') if isinstance(x, bytes) else x)
+                    
+                    if spike_ins_table is not None:
+                        spike_ins_info = pd.read_csv(spike_ins_table, sep=",")
+                        print(spike_ins_info)
+                        spike_in_list = spike_ins_info['name'].astype(str).tolist()
+                    else:
+                        spike_in_list = spike_data['proforma peptidoform sequence'].astype(str).tolist()
+                    
+                    spikein_columns = spike_data.columns.to_list()
                     
                     ## for each spike-in, extract the data
                     df_tmp = pd.DataFrame()  ## data frame for each spike-in and each file
                     for index, row in spike_data.iterrows():
-                        column_names = [column_names_spike[index] + "_" + x for x in spikein_columns]    
+                        column_names = [spike_in_list[index] + "_" + x for x in spikein_columns]    
                         df_tmp_tmp = pd.DataFrame(columns = column_names)
                         df_tmp_tmp.loc[0] = spike_data.loc[index, spikein_columns].values
 
@@ -266,11 +288,13 @@ def assemble_result_table(
                 df_table = pd.concat([df_table, df_table_spike], axis = 1)
 
                     
-            else:
+            else: # charge state and missed cleavages dataframes
                 df_tmp = pd.DataFrame()
                 for file in hdf5_file_names:
                     df_tmp_tmp = dataframes[file][metric]
-                    df_tmp = pd.concat([df_tmp, df_tmp_tmp], axis = 0)
+                    # df_wide = df_tmp_tmp.pivot(index=0, columns=df_tmp_tmp.columns[0], values=df_tmp_tmp.columns[1])
+                    df_wide = df_tmp_tmp.pivot_table(columns=df_tmp_tmp.columns[0], values=df_tmp_tmp.columns[1], aggfunc='first')
+                    df_tmp = pd.concat([df_tmp, df_wide], axis = 0)
                 columns = [metric + "_" + str(col) for col in df_tmp.columns]
                 df_tmp.reset_index(drop=True, inplace=True)
                 df_tmp.columns = columns
@@ -305,13 +329,14 @@ def argparse_setup():
     parser.add_argument("-RT_unit", help="Unit of the retention time, either sec for seconds or min for minutes.", default = "sec")
     parser.add_argument("-fig_show", help = "Show figures, e.g. for debugging?", default = False, action = "store_true")
     parser.add_argument("-output_column_order", help = "Order of columns in the output table", default = "", type = str)
-    parser.add_argument("-spikein_columns", help = "Columns of the spike-in dataframes that should end up in the result table", default = "Maximum_Intensity,RT_at_Maximum_Intensity,PSMs,Delta_to_expected_RT", type = str)
+    parser.add_argument("-spikein_columns", help = "Columns of the spike-in dataframes that should end up in the result table", default = "MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT", type = str)
     parser.add_argument("-height_barplots", help = "Height of the barplots in pixels", default = 700, type = int) # in pixels
     parser.add_argument("-width_barplots", help = "Width of the barplots in pixels", default = 0, type = int) # default 0: flexible width, in pixels
     parser.add_argument("-height_pca", help = "Height of the PCA plots in pixels", default = 1000, type = int) # in pixels
     parser.add_argument("-width_pca", help = "Width of the PCA plots in pixels", default = 1000, type = int) # in pixels
     parser.add_argument("-height_ionmaps", help = "Height of the ionmaps in inches", default = 10, type = int)
     parser.add_argument("-width_ionmaps", help = "Width of the ionmaps in inches", default = 10, type = int)
+    parser.add_argument("-spike_ins_table", help = "Path to the spike-ins table file", default = None, type = str)
     return parser.parse_args()
 
 
@@ -330,9 +355,9 @@ if __name__ == "__main__":
     thermo_files = []
     bruker_files = []
     for hdf5 in hdf5s:
-        if 'THERMO|Extracted_Headers' in hdf5.keys():
+        if 'THERMO ! Extracted_Headers' in hdf5.keys():
             thermo_files.append(hdf5)
-        elif 'BRUKER|Extracted_Headers' in hdf5.keys():
+        elif 'BRUKER ! Extracted_Headers' in hdf5.keys():
             bruker_files.append(hdf5)
             
     logger = logging.getLogger(__name__)
@@ -359,21 +384,17 @@ if __name__ == "__main__":
     (single_value_ids, array_value_ids, dataframe_ids) =  get_dataset_types(hdf5s[0])
     
     single_values = get_dataframe_of_single_values(hdf5s, single_value_ids)
-    single_value_ids_short = [s.split("|")[-1] for s in single_value_ids]
+    single_value_ids_short = [s.split(hdf5_accession_separator)[-1].strip() for s in single_value_ids]
 
     array_values = get_array_values(hdf5s, array_value_ids)
-    array_value_ids_short = [s.split("|")[-1] for s in array_value_ids]
+    array_value_ids_short = [s.split(hdf5_accession_separator)[-1].strip() for s in array_value_ids]
 
-    ### remove Thermo headers with "Extracted_Log_Headers" from dataframe_ids (cannot be plotted because only single values)
-    dataframe_ids = [x for x in dataframe_ids if x != "THERMO_LOG|Extracted_Log_Headers"]
+    ### remove Thermo headers with "Extracted_Log_Headers" from dataframe_ids (cannot be plotted because they contain only single values)
+    dataframe_ids = [x for x in dataframe_ids if x != "THERMO_LOG ! Extracted_Log_Headers"]
 
     dataframes = get_dataframes_values(hdf5s, dataframe_ids)
-    dataframe_ids_short = [s.split("|")[-1] for s in dataframe_ids]
-
-
-            
-            
-
+    dataframe_ids_short = [s.split(hdf5_accession_separator)[-1].strip() for s in dataframe_ids]
+    
 ####################################################################################################
     # parameters
 
@@ -408,7 +429,7 @@ if __name__ == "__main__":
     if args.output_column_order == "":  ### take default column order
         metric_list = [
             "filename",
-            "timestamp",
+            "startTime",
             "RT_range",
             "nr_MS1",
             "nr_MS2",
@@ -416,18 +437,18 @@ if __name__ == "__main__":
             "accumulated_MS2_TIC",
             "base_peak_intensity_max",
             "total_ion_current_max",
-            "base_peak_intensity_max_up_to_",
-            "total_ion_current_max_up_to_",
+            "base_peak_intensity_maxima_per_time_range",
+            "total_ion_current_maxima_per_time_ranges",
             "MS2_prec_charge_fraction",
-            "RT_MS1_quartiles",
-            "RT_MS2_quartiles",
-            "RT_TIC_quartiles",
+            "RT_MS1_quantiles",
+            "RT_MS2_quantiles",
+            "RT_TIC_quantiles",
             "MS1_freq_max",
             "MS2_freq_max",
-            "MS1_density_quartiles",
-            "MS2_density_quartiles",
-            "MS1_TIC_change_quartiles",
-            "MS1_TIC_quartiles",
+            "MS1_density_quantiles",
+            "MS2_density_quantiles",
+            "MS1_TIC_change_quantiles",
+            "MS1_TIC_quantiles",
             "nr_PSMs",
             "nr_peptides",
             "nr_protein_groups",
@@ -436,7 +457,7 @@ if __name__ == "__main__":
             "PSM_missed_cleavage_counts",
             "nr_features",
             "nr_ident_features",
-            "features_charge",
+            "features_charges",
             "ident_features_charge",
             "spike_in_metrics"
         ]
@@ -453,7 +474,8 @@ if __name__ == "__main__":
         dataframes = dataframes,
         dataframe_ids_short = dataframe_ids_short,
         RT_unit = args.RT_unit, 
-        spikein_columns = args.spikein_columns.split(",")
+        spikein_columns = args.spikein_columns.split(","), 
+        spike_ins_table = args.spike_ins_table
     )
 
     # Sort values by filename
@@ -579,9 +601,9 @@ if __name__ == "__main__":
     tic_df2 = pd.concat(tic_df)
     
     if args.RT_unit == "min":
-        tic_df2["retention_time"] = tic_df2["retention_time"]/60
+        tic_df2["scond"] = tic_df2["second"]/60
    
-    fig04 = px.line(tic_df2, x="retention_time", y="TIC", color = "filename", title = "TIC overlay")
+    fig04 = px.line(tic_df2, x="second", y="total ion current", color = "filename", title = "TIC overlay")
     fig04.update_traces(line=dict(width=0.5))
     fig04.update_yaxes(exponentformat="E") 
     fig04.update_layout(height = int(args.height_barplots))
@@ -610,7 +632,7 @@ if __name__ == "__main__":
         df_tmp = pd.DataFrame()
         df_tmp["filename"] = [file]*4
         df_tmp["variable"] = ["RT_TIC_Q_" + str(i) for i in range(1,5)]
-        df_tmp["value"] = array_values[file]["RT_TIC_quartiles"]
+        df_tmp["value"] = array_values[file]["RT_TIC_quantiles"]
         RT_TIC_Q_df_list.append(df_tmp)
     df_pl05_long = pd.concat(RT_TIC_Q_df_list)
     #df_pl05_long = df_pl05_long.sort_values(by = "filename", ascending=True)  
@@ -639,7 +661,7 @@ if __name__ == "__main__":
         df_tmp = pd.DataFrame()
         df_tmp["filename"] = [file]*4
         df_tmp["variable"] = ["RT_MS1_Q_" + str(i) for i in range(1,5)]
-        df_tmp["value"] = array_values[file]["RT_MS1_quartiles"]
+        df_tmp["value"] = array_values[file]["RT_MS1_quantiles"]
         RT_MS1_Q_df_list.append(df_tmp)
     df_pl06_long = pd.concat(RT_MS1_Q_df_list)
     #df_pl06_long = df_pl06_long.sort_values(by = "filename", ascending=True)  
@@ -666,7 +688,7 @@ if __name__ == "__main__":
         df_tmp = pd.DataFrame()
         df_tmp["filename"] = [file]*4
         df_tmp["variable"] = ["RT_MS2_Q_" + str(i) for i in range(1,5)]
-        df_tmp["value"] = array_values[file]["RT_MS2_quartiles"]
+        df_tmp["value"] = array_values[file]["RT_MS2_quantiles"]
         RT_MS2_Q_df_list.append(df_tmp)
     df_pl07_long = pd.concat(RT_MS2_Q_df_list)
     
@@ -690,14 +712,15 @@ if __name__ == "__main__":
     Prec_charge_df_list = []
     for file in hdf5_file_names:
         df_tmp = dataframes[file]["MS2_prec_charge_fraction"]
-        df_tmp.rename(columns = {"0": "unknown", df_tmp.columns[-1]: "more"}, inplace = True)
-        df_tmp_long = df_tmp.melt()
-        df_tmp_long["filename"] = [file]*df_tmp.shape[1]
-        Prec_charge_df_list.append(df_tmp_long)
+        df_tmp['charge state'] = df_tmp['charge state'].replace(max(df_tmp['charge state']), 'more')
+        df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+ 
+        df_tmp["filename"] = [file]*df_tmp.shape[0]
+        Prec_charge_df_list.append(df_tmp)
     df_pl08_long = pd.concat(Prec_charge_df_list)
-    df_pl08_long.rename(columns = {"variable": "Prec_charge", "value": "fraction"}, inplace = True)
+    #df_pl08_long.rename(columns = {"variable": "Prec_charge", "value": "fraction"}, inplace = True)
     
-    fig08 = px.bar(df_pl08_long, x="filename", y="fraction", color="Prec_charge", title = "Charge states of precursors")
+    fig08 = px.bar(df_pl08_long, x="filename", y="fraction", color="charge state", title = "Charge states of precursors")
     fig08.update_xaxes(tickangle=-90)
     fig08.update_layout(height = int(args.height_barplots))
     if args.width_barplots > 0:
@@ -718,14 +741,14 @@ if __name__ == "__main__":
         PSM_charge_df_list = []
         for file in hdf5_file_names:
             df_tmp = dataframes[file]["PSM_charge_fractions"]
-            df_tmp.rename(columns = {"0": "unknown", df_tmp.columns[-1]: "more"}, inplace = True)
-            df_tmp_long = df_tmp.melt()
-            df_tmp_long["filename"] = [file]*df_tmp.shape[1]
-            PSM_charge_df_list.append(df_tmp_long)
+            df_tmp['charge state'] = df_tmp['charge state'].replace(max(df_tmp['charge state']), 'more')
+            df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+            df_tmp["filename"] = [file]*df_tmp.shape[0]
+            PSM_charge_df_list.append(df_tmp)
         df_pl09_long = pd.concat(PSM_charge_df_list)
-        df_pl09_long.rename(columns = {"variable": "PSM_charge", "value": "fraction"}, inplace = True)
+        #df_pl09_long.rename(columns = {"variable": "PSM_charge", "value": "fraction"}, inplace = True)
         
-        fig09 = px.bar(df_pl09_long, x="filename", y="fraction", color="PSM_charge", title = "Charge states of PSMs")
+        fig09 = px.bar(df_pl09_long, x="filename", y="fraction", color="charge state", title = "Charge states of PSMs")
         fig09.update_xaxes(tickangle=-90)
         fig09.update_layout(height = int(args.height_barplots))
         if args.width_barplots > 0:
@@ -760,16 +783,17 @@ if __name__ == "__main__":
         PSM_missed_df_list = []
         for file in hdf5_file_names:
             df_tmp = dataframes[file]["PSM_missed_cleavage_counts"]
-            df_tmp.rename(columns = {df_tmp.columns[-1]: "more"}, inplace = True)
-            df_tmp_long = df_tmp.melt()
-            df_tmp_long["filename"] = [file]*df_tmp.shape[1]
-            PSM_missed_df_list.append(df_tmp_long)
+            df_tmp['number of missed cleavages'] = df_tmp['number of missed cleavages'].replace(max(df_tmp['number of missed cleavages']), 'more')
+            #df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+            df_tmp["filename"] = [file]*df_tmp.shape[0]
+            PSM_missed_df_list.append(df_tmp)
         df_pl10_long = pd.concat(PSM_missed_df_list)
         df_pl10_long_perc = df_pl10_long.copy()
-        df_pl10_long_perc["value"] = df_pl10_long["value"]/df_pl10_long.groupby("filename")["value"].transform("sum")
-        df_pl10_long_perc.rename(columns = {"variable": "PSM_missed_cleavages", "value": "Fraction"}, inplace = True)
+        # calculate fraction instead of absolute counts
+        df_pl10_long_perc["Number of Occurrences"] = df_pl10_long["Number of Occurrences"]/df_pl10_long.groupby("filename")["Number of Occurrences"].transform("sum")
+        df_pl10_long_perc.rename(columns = {"Number of Occurrences": "Fraction"}, inplace = True)
         
-        fig10 = px.bar(df_pl10_long_perc, x="filename", y="Fraction", color="PSM_missed_cleavages", title = "Fraction of missed cleavages for PSMs")
+        fig10 = px.bar(df_pl10_long_perc, x="filename", y="Fraction", color="number of missed cleavages", title = "Fraction of missed cleavages for PSMs")
         fig10.update_xaxes(tickangle=-90)
         fig10.update_layout(height = int(args.height_barplots))
         if args.width_barplots > 0:
@@ -802,7 +826,7 @@ if __name__ == "__main__":
     # (only plotted if we have more than one raw file)
 
     ## Calculate scaling of timestamps to colour the points in the PCA plot (percentage between min and max time):
-    timestamps = single_values["timestamp"].values.flatten().tolist()
+    timestamps = single_values["startTime"].values.flatten().tolist()
     mintime = min(timestamps)
     maxtime = max(timestamps)
     
@@ -824,15 +848,15 @@ if __name__ == "__main__":
         "base_peak_intensity_max",
         "total_ion_current_max",
         "MS2_prec_charge_fraction",
-        "RT_MS1_quartiles",
-        "RT_MS2_quartiles",
-        "RT_TIC_quartiles",
+        "RT_MS1_quantiles",
+        "RT_MS2_quantiles",
+        "RT_TIC_quantiles",
         "MS1_freq_max",
         "MS2_freq_max",
-        "MS1_density_quartiles",
-        "MS2_density_quartiles",
-        "MS1_TIC_change_quartiles",
-        "MS1_TIC_quartiles"]
+        "MS1_density_quantiles",
+        "MS2_density_quantiles",
+        "MS1_TIC_change_quantiles",
+        "MS1_TIC_quantiles"]
 
         df_pl11 = assemble_result_table(
             metric_list = metric_list_PCA_raw, 
@@ -952,7 +976,7 @@ if __name__ == "__main__":
             "PSM_missed_cleavage_counts",
             "nr_features",
             "nr_ident_features",
-            "features_charge",
+            "features_charges",
             "ident_features_charge"]
         
         df_pl12 = assemble_result_table(
@@ -1175,11 +1199,44 @@ if __name__ == "__main__":
 
 
 
-################################################################################################
-## Fig 15: all other headers by Thermo or Bruker
+###############################################################################################
+ ### Fig 15: Boxplot of PSM ppm error quartiles
+ 
+    PSM_error_df_list = []
+    for file in hdf5_file_names:
+        df_tmp = pd.DataFrame()
+        df_tmp["filename"] = [file]
+        df_tmp["filtered_psms_ppm_error_Q_1"] = [array_values[file]["filtered_psms_ppm_error_quartiles"][0]]
+        df_tmp["filtered_psms_ppm_error_Q_2"] = [array_values[file]["filtered_psms_ppm_error_quartiles"][1]]
+        df_tmp["filtered_psms_ppm_error_Q_3"] = [array_values[file]["filtered_psms_ppm_error_quartiles"][2]]
+        PSM_error_df_list.append(df_tmp)
+    df_pl15 = pd.concat(PSM_error_df_list)
 
-    if not os.path.exists(output_path + os.sep + "fig15_additional_headers"):
-        os.makedirs(output_path + os.sep + "fig15_additional_headers")
+    fig15 = go.Figure()
+    fig15.add_trace(go.Box(q1=df_pl15["filtered_psms_ppm_error_Q_1"], median=df_pl15["filtered_psms_ppm_error_Q_2"],
+                    q3=df_pl15["filtered_psms_ppm_error_Q_3"], mean = single_values[["filtered_psms_ppm_error_mean"]], sd = single_values[["filtered_psms_ppm_error_sigma"]], name="PSM ppm error", x= df_pl15["filename"]))
+    fig15.update_layout(title = "Boxplot of PSM ppm error quartiles", yaxis_title = "PSM ppm error", xaxis_title = "sample")
+    fig15.update_layout(height = int(args.height_barplots))
+    if args.width_barplots > 0:
+        fig15.update_layout(width = int(args.width_barplots))
+
+    if fig_show:
+        fig15.show()
+    if fig_plotly:
+        with open(output_path + os.sep + "fig15_PSM_error_boxplots.plotly.json", "w") as json_file:
+            json_file.write(plotly.io.to_json(fig15))
+    if fig_html:
+        fig15.write_html(file = output_path + os.sep + "fig15_PSM_error_boxplots.html", auto_open = False)
+
+
+
+
+
+################################################################################################
+## Fig 16: all other headers by Thermo or Bruker
+
+    if not os.path.exists(output_path + os.sep + "fig16_additional_headers"):
+        os.makedirs(output_path + os.sep + "fig16_additional_headers")
 
     add_headers = []
     for file in hdf5_file_names:
@@ -1253,46 +1310,46 @@ if __name__ == "__main__":
             
                 if not df_tmp.empty:
                     #df_tmp = df_tmp.sort_values(by = ["filename", "x"], ascending=True)  
-                    fig15 = px.line(df_tmp, x="x", y="y", color = "filename", title = display_header)
-                    fig15.update_traces(line=dict(width=0.5))
-                    fig15.update_yaxes(exponentformat="E") 
-                    fig15.update_layout(height = int(args.height_barplots))
+                    fig16 = px.line(df_tmp, x="x", y="y", color = "filename", title = display_header)
+                    fig16.update_traces(line=dict(width=0.5))
+                    fig16.update_yaxes(exponentformat="E") 
+                    fig16.update_layout(height = int(args.height_barplots))
                     if args.width_barplots > 0:
-                        fig15.update_layout(width = int(args.width_barplots))
-                    fig15.update_layout(yaxis_title = display_header)
+                        fig16.update_layout(width = int(args.width_barplots))
+                    fig16.update_layout(yaxis_title = display_header)
                     if args.RT_unit == "sec":
-                        fig15.update_layout(xaxis_title = "Time (sec)")
+                        fig16.update_layout(xaxis_title = "Time (sec)")
                     elif args.RT_unit == "min":
-                        fig15.update_layout(xaxis_title = "Time (min)")
+                        fig16.update_layout(xaxis_title = "Time (min)")
                     
                 else: 
-                    fig15 = go.Figure()
-                    fig15.add_annotation(
+                    fig16 = go.Figure()
+                    fig16.add_annotation(
                         x=0.5,
                         y=0.5,
                         text="No '{}' available!".format(display_header),
                         showarrow=False,
                         font=dict(size=14)
                     )
-                    fig15.update_layout(
+                    fig16.update_layout(
                         width=1500,
                         height=1000,
                         title="Empty Plot"
                     )
 
                 if fig_show:
-                    fig15.show()
+                    fig16.show()
                 if fig_plotly:
-                    with open(output_path + os.sep + "fig15_additional_headers" + os.sep + "{}.plotly.json".format(re.sub('\W+','', display_header)), "w") as json_file:
-                        json_file.write(plotly.io.to_json(fig15))
+                    with open(output_path + os.sep + "fig16_additional_headers" + os.sep + "{}.plotly.json".format(re.sub('\W+','', display_header)), "w") as json_file:
+                        json_file.write(plotly.io.to_json(fig16))
                 if fig_html:
-                    fig15.write_html(file = output_path + os.sep + "fig15_additional_headers" + os.sep + "{}.html".format(re.sub('\W+','', display_header)), auto_open = False)
+                    fig16.write_html(file = output_path + os.sep + "fig16_additional_headers" + os.sep + "{}.html".format(re.sub('\W+','', display_header)), auto_open = False)
 
 ################################################################################################
-## Fig 16: all other headers by Thermo or Bruker      
+## Fig 17: all other headers by Thermo or Bruker      
         
-    if not os.path.exists(output_path + os.sep + "fig16_BRUKER_calibrants"):
-        os.makedirs(output_path + os.sep + "fig16_BRUKER_calibrants")
+    if not os.path.exists(output_path + os.sep + "fig17_BRUKER_calibrants"):
+        os.makedirs(output_path + os.sep + "fig17_BRUKER_calibrants")
         
     df_calibrants = pd.DataFrame()
     for file in hdf5_file_names:
@@ -1327,38 +1384,38 @@ if __name__ == "__main__":
 
             title_tmp = "Calibrant " + str(i) + " m/z: " + str(mz_tmp) + ", ion mobility: " + str(mobility_tmp)
 
-            fig16a = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mz", color = "filename", title = title_tmp)
-            fig16a.update_traces(line=dict(width=0.5))
-            fig16a.add_hline(y=mz_tmp)
-            fig16a.update_layout(height = int(args.height_barplots))
+            fig17a = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mz", color = "filename", title = title_tmp)
+            fig17a.update_traces(line=dict(width=0.5))
+            fig17a.add_hline(y=mz_tmp)
+            fig17a.update_layout(height = int(args.height_barplots))
             if args.width_barplots > 0:
-                fig16a.update_layout(width = int(args.width_barplots))
+                fig17a.update_layout(width = int(args.width_barplots))
             if args.RT_unit == "sec":
-                fig16a.update_layout(xaxis_title = "Time (sec)")
+                fig17a.update_layout(xaxis_title = "Time (sec)")
             elif args.RT_unit == "min":
-                fig16a.update_layout(xaxis_title = "Time (min)")
+                fig17a.update_layout(xaxis_title = "Time (min)")
             if fig_plotly:
-                with open(output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16a_Calibrant_mz_" + str(i) + ".plotly.json", "w") as json_file:
-                    json_file.write(plotly.io.to_json(fig16a))
+                with open(output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17a_Calibrant_mz_" + str(i) + ".plotly.json", "w") as json_file:
+                    json_file.write(plotly.io.to_json(fig17a))
             if fig_html:
-                fig16a.write_html(file = output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16a_Calibrant_mz_" + str(i) + ".html", auto_open = False)
+                fig17a.write_html(file = output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17a_Calibrant_mz_" + str(i) + ".html", auto_open = False)
 
             
-            fig16b = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mobility", color = "filename", title = title_tmp)
-            fig16b.update_traces(line=dict(width=0.5))
-            fig16b.add_hline(y=mobility_tmp)
-            fig16b.update_layout(height = int(args.height_barplots))
+            fig17b = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mobility", color = "filename", title = title_tmp)
+            fig17b.update_traces(line=dict(width=0.5))
+            fig17b.add_hline(y=mobility_tmp)
+            fig17b.update_layout(height = int(args.height_barplots))
             if args.width_barplots > 0:
-                fig16b.update_layout(width = int(args.width_barplots))
+                fig17b.update_layout(width = int(args.width_barplots))
             if args.RT_unit == "sec":
-                fig16b.update_layout(xaxis_title = "Time (sec)")
+                fig17b.update_layout(xaxis_title = "Time (sec)")
             elif args.RT_unit == "min":
-                fig16b.update_layout(xaxis_title = "Time (min)")
+                fig17b.update_layout(xaxis_title = "Time (min)")
             if fig_plotly:
-                with open(output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16b_Calibrant_ionmobility" + str(i) + ".plotly.json", "w") as json_file:
-                    json_file.write(plotly.io.to_json(fig16b))
+                with open(output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17b_Calibrant_ionmobility" + str(i) + ".plotly.json", "w") as json_file:
+                    json_file.write(plotly.io.to_json(fig17b))
             if fig_html:
-                fig16b.write_html(file = output_path + os.sep + "fig16_BRUKER_calibrants" + os.sep + "fig16b_Calibrant_ionmobility" + str(i) + ".html", auto_open = False)
+                fig17b.write_html(file = output_path + os.sep + "fig17_BRUKER_calibrants" + os.sep + "fig17b_Calibrant_ionmobility" + str(i) + ".html", auto_open = False)
 
                 
                 

@@ -29,6 +29,7 @@ Parameters for visualization script
 | `width_pca` | Width of the PCA plot in pixels | `integer` | 1000 |  |  |
 | `height_ionmaps` | Height of the ion maps in inches | `integer` | 10 |  |  |
 | `width_ionmaps` | Width of the ion maps in inches | `integer` | 10 |  |  |
+| `visualization_mem` | Memory used for the visualization step | `string` | 1.GB |  |  |
 
 ## Spike in parameters
 

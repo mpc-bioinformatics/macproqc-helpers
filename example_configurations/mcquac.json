@@ -14,7 +14,8 @@
         "height_pca": 1000,
         "width_pca": 1000,
         "height_ionmaps": 10,
-        "width_ionmaps": 10
+        "width_ionmaps": 10,
+        "visualization_mem": "16.GB"
     },
     "spike_in_parameters": {
         "spike_ins_table": "${projectDir}/example_configurations/spike_ins.csv",

@@ -5,7 +5,8 @@ import numpy as np
 import argparse
 import io
 import h5py
-from typing import List, Any
+
+import hdf5_functions as mzhdf5
 
 
 def argparse_setup():
@@ -17,51 +18,6 @@ def argparse_setup():
     parser.add_argument("--store_all_infos", help="Store all PSMs, peptides and proteins in the HDF5 file", default=False, type=bool)
 
     return parser.parse_args()
-
-
-def add_entry_to_hdf5(
-    f, qc_acc: str, qc_short_name: str, qc_name: str, qc_description: str, 
-    value, value_shape: tuple, value_type: str, 
-    unit_accession: str=None, unit_name: str=None,
-    ): 
-    """ Adds an entry into the hdf5 file """
-    key = "|".join([qc_acc, qc_short_name])  # ACCESSION|SHORT_DESC
-    if value_type in ("str", h5py.string_dtype()):
-        ds = f.create_dataset(key, shape=value_shape, dtype=h5py.string_dtype(), compression="gzip")
-        ds[:] = value
-    else:
-        f.create_dataset(key, value_shape, dtype=value_type, compression="gzip")
-        if not any([x == 0 for x in value_shape]):
-            # Check if any dimension is 0. If so, we do not write data in it (zero lengthed result).
-            f[key].write_direct(np.array(value, dtype=value_type))
-    
-    f[key].attrs["qc_short_name"] = qc_short_name
-    f[key].attrs["qc_name"] = qc_name
-    f[key].attrs["qc_description"] = qc_description
-    f[key].attrs["unit_accession"] = unit_accession
-    f[key].attrs["unit_name"] = unit_name
-
-
-def add_table_to_hdf5(
-    f, qc_acc: str, qc_short_name: str, qc_name: str, qc_description: str, 
-    column_names: List[str], column_data: List[List[Any]], column_types: List[str]
-    ): 
-    """Adds a table in groups"""
-
-    key = "|".join([qc_acc, qc_short_name])  # ACCESSION|SHORT_DESC
-    table_group = f.create_group(key)
-    table_group.attrs["qc_short_name"] = qc_short_name
-    table_group.attrs["qc_name"] = qc_name
-    table_group.attrs["qc_description"] = qc_description
-    table_group.attrs["column_order"] = "|".join(column_names)
-    
-    for n, d, t in zip (column_names, column_data, column_types): 
-        if t in ("str", h5py.string_dtype()):
-            ds = table_group.create_dataset(n, shape=len(d), dtype=h5py.string_dtype(), compression="gzip")
-            ds[:] = d
-        else:
-            table_group.create_dataset(n, (len(d),), dtype=t, compression="gzip")
-            table_group[n].write_direct(np.array(d, dtype=t))
 
 
 def run_pia_extraction():
@@ -86,10 +42,16 @@ def parse_peptide_infos(pia_peptide_csv: str, out_hdf5: h5py.File) -> int:
     else:
         number_filtered_peptides = 0
     
-    add_entry_to_hdf5(out_hdf5,
-                      "MS:1003250", "nr_peptides", "count of identified peptidoforms", "The number of peptidoforms that pass the threshold to be considered identified with sufficient confidence.", 
-                      number_filtered_peptides, (1,), "int32", 
-                      "UO:0000189", "count unit")
+    mzhdf5.add_entry_to_hdf5(out_hdf5,
+                      "MS:1003250",
+                      "nr_peptides",
+                      "count of identified peptidoforms",
+                      "The number of peptidoforms that pass the threshold to be considered identified with sufficient confidence.", 
+                      number_filtered_peptides,
+                      (1,),
+                      "uint64", 
+                      "UO:0000189",
+                      "count unit")
 
 
 def parse_protein_infos(pia_proteins_mztab: str, out_hdf5: h5py.File):
@@ -110,16 +72,35 @@ def parse_protein_infos(pia_proteins_mztab: str, out_hdf5: h5py.File):
     else:
         number_proteins = 0
         number_ungrouped_proteins = 0
-    
-    add_entry_to_hdf5(out_hdf5,
-                      "MS:1003327", "nr_protein_groups", "number of identified protein groups", "The number of protein groups that pass the threshold to be considered identified with sufficient confidence.", 
-                      number_proteins, (1,), "int32", 
-                      "UO:0000189", "count unit")
-    
-    add_entry_to_hdf5(out_hdf5,
-                      "LOCAL:08", "nr_accessions", "number of identified protein accessions", "All protein accessions within the protein groups are counted (ungreouped protein groups).", 
-                      number_ungrouped_proteins, (1,), "int32", 
-                      "UO:0000189", "count unit")
+
+    mzhdf5.add_entry_to_hdf5(
+        out_hdf5,
+        "MS:1003327",
+        "nr_protein_groups",
+        "number of identified protein groups",
+        "The number of protein groups that pass the threshold to be considered identified with sufficient confidence.",
+        number_proteins,
+        (1,),
+        "uint64",
+        "UO:0000189",
+        "count unit",
+    )
+
+    mzhdf5.add_entry_to_hdf5(
+        out_hdf5,
+        "MS:4000214",
+        "nr_accessions",
+        "number of all identified accessions in all ambiguity groups",
+        (
+            "The number of accessions in identified protein ambiguity groups that have been identified. "
+            "This is the number of accessions in the groups, which were counted in 'MS:1002404 ! count of identified proteins', which hence must be greater or equal to this number."
+        ),
+        number_ungrouped_proteins,
+        (1,),
+        "uint64",
+        "UO:0000189",
+        "count unit",
+    )
 
 
 def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bool = False):
@@ -141,7 +122,7 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         # remove decoys and filter for important PSM columns
         psm_df = psm_df.loc[psm_df['opt_global_cv_MS:1002217_decoy_peptide'] == 0]
         psm_df = psm_df.loc[:,["PSM_ID", "sequence", "accession", "unique", "retention_time", "charge", "opt_global_missed_cleavages", "modifications", "exp_mass_to_charge", "calc_mass_to_charge", "spectra_ref", psm_score_header]]
-        
+
         # group the accessions
         gbseries = psm_df.groupby(by=['PSM_ID'])['accession']
         psm_df['accession'] = psm_df["PSM_ID"].map(gbseries.apply(",".join))
@@ -161,7 +142,7 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
 
         # now get all counts as QC metrics
         PSM_count = psm_df.shape[0]
-        
+
         nr_psms = psm_df.shape[0] if psm_df.shape[0] != 0 else 1
         charge_fraction_1    = psm_df[psm_df['charge'] == 1]['PSM_ID'].count() / nr_psms
         charge_fraction_2    = psm_df[psm_df['charge'] == 2]['PSM_ID'].count() / nr_psms
@@ -169,48 +150,109 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         charge_fraction_4    = psm_df[psm_df['charge'] == 4]['PSM_ID'].count() / nr_psms
         charge_fraction_5    = psm_df[psm_df['charge'] == 5]['PSM_ID'].count() / nr_psms
         charge_fraction_more = psm_df[psm_df['charge'] > 5]['PSM_ID'].count() / nr_psms
-        charge_fractions = [[charge_fraction_1], [charge_fraction_2], [charge_fraction_3], [charge_fraction_4], [charge_fraction_5], [charge_fraction_more]]
+        charge_fractions = [charge_fraction_1, charge_fraction_2, charge_fraction_3, charge_fraction_4, charge_fraction_5, charge_fraction_more]
 
         miss_count_0    = psm_df[psm_df['opt_global_missed_cleavages'] == 0]['PSM_ID'].count()
         miss_count_1    = psm_df[psm_df['opt_global_missed_cleavages'] == 1]['PSM_ID'].count()
         miss_count_2    = psm_df[psm_df['opt_global_missed_cleavages'] == 2]['PSM_ID'].count()
         miss_count_3    = psm_df[psm_df['opt_global_missed_cleavages'] == 3]['PSM_ID'].count()
         miss_count_more = psm_df[psm_df['opt_global_missed_cleavages'] > 3]['PSM_ID'].count()
-        miss_counts = [[miss_count_0], [miss_count_1], [miss_count_2], [miss_count_3], [miss_count_more]]
+        miss_counts = np.array([miss_count_0, miss_count_1, miss_count_2, miss_count_3, miss_count_more], dtype=np.float64)
 
     else:
         PSM_count = 0
-        charge_fractions = [[0], [0], [0], [0], [0], [0]]
-        miss_counts = {"psm_missed_0": 0, "psm_missed_1": 0, "psm_missed_2": 0, "psm_missed_3": 0, "psm_missed_more": 0}
+        charge_fractions = [0, 0, 0, 0, 0, 0]
+        miss_counts = miss_counts = np.array([0, 0, 0, 0, 0], dtype=np.float64)
         ppm_error = [np.nan]
 
-    add_entry_to_hdf5(out_hdf5,
-                      "MS:1003251", "nr_PSMs", "count of identified spectra", "The number of spectra that pass the threshold to be considered identified with sufficient confidence.", 
-                      PSM_count, (1,), "int32", 
-                      "UO:0000189", "count unit")
-    
-    add_table_to_hdf5(out_hdf5,
-                      "LOCAL:09", "PSM_charge_fractions", 
-                      "fractions of precursor charge states of the PSMs", 
-                      "Precursor charge states of the PSMs as fractions (only identifications are counted, not all precursors).", 
-                      ["1", "2", "3", "4", "5", "6 or more"], charge_fractions, ["float64", "float64", "float64", "float64", "float64", "float64"]
+    mzhdf5.add_entry_to_hdf5(
+        f=out_hdf5,
+        qc_acc="MS:1003251",
+        qc_short_name="nr_PSMs",
+        qc_name="count of identified spectra",
+        qc_description="The number of spectra that pass the threshold to be considered identified with sufficient confidence.",
+        value=PSM_count,
+        value_shape=(1,),
+        value_type="uint64",
+        unit_accession="UO:0000189",
+        unit_name="count unit",
     )
 
-    add_table_to_hdf5(out_hdf5,
-                      "MS:4000180", "PSM_missed_cleavage_counts", "table of missed cleavage counts", "The number of identified peptides with corresponding number of missed cleavages after user-defined acceptance criteria are applied. The number of missed cleavages per peptide is given in the 'number of missed cleavages' column, the respective count of such peptides identified in the 'Number of Occurrences' column. The highest 'missed cleavages' row is to be interpreted as that number of missed cleavages or higher.", 
-                      ["0", "1", "2", "3", "4 or more"], miss_counts, ["uint32", "uint32", "uint32", "uint32", "uint32"]
+    mzhdf5.add_table_to_hdf5(
+        f=out_hdf5,
+        qc_acc="MS:4000209",
+        qc_short_name="PSM_charge_fractions",
+        qc_name="peptide spectrum matches charges fractions",
+        qc_description=(
+            "The fraction of filtered peptide spectrum matches (PSMs) within the run for each specified charge state. "
+            "The fractions [0,1] are given in the 'fraction' column, corresponding charges in the 'charge state' column. "
+            "The highest charge state is to be interpreted as that charge state or higher. "
+            "The numbers here are recorded after any filtering for PSM level quality (e.g. FDR filtering)."
+        ),
+        column_names=["MS:1000041 ! charge state", "UO:0000191 ! fraction"],
+        column_data=[[1, 2, 3, 4, 5, 6], charge_fractions],
+        column_types=["uint16", "float64"],
     )
 
-    add_entry_to_hdf5(out_hdf5,
-                        "LOCAL:05", "filtered_psms_ppm_error", "deviations in PPM for each PSM", 
-                            "Expected and calculated mass-to-charge ratios are compared for each PSM. Results are given in parts per million (ppm).",
-                       # {
-                       #     "Expected and calculated mass-to-charge ratios are compared for each PSM. "
-                       #     "Results are given in parts per million (ppm)."
-                       # }, 
-                        ppm_error, (len(ppm_error),), "float64", 
-                        "UO:0000169", "parts per million")
-    
+    miss_fractions = miss_counts / miss_counts.sum() if miss_counts.sum() > 0 else miss_counts
+    mzhdf5.add_table_to_hdf5(
+        f=out_hdf5,
+        qc_acc="MS:4000215",
+        qc_short_name="PSM_missed_cleavages_fractions",
+        qc_name="missed cleavages fractions",
+        qc_description=(
+            "The fraction of identified peptides with corresponding number of missed cleavages after user-defined acceptance criteria are applied. "
+            "The number of missed cleavages per peptide is given in the 'number of missed cleavages' column, the respective fraction of such peptides identified in the 'fraction' column. "
+            "The highest 'missed cleavages' row is to be interpreted as that number of missed cleavages or higher."
+        ),
+        column_names=[
+            "MS:1003044 ! number of missed cleavages",
+            "UO:0000191 ! fraction",
+        ],
+        column_data=[[0, 1, 2, 3, 4], miss_fractions],
+        column_types=["uint16", "float64"],
+    )
+
+    mzhdf5.add_entry_to_hdf5(
+        f=out_hdf5,
+        qc_acc="MS:4000206",
+        qc_short_name="filtered_psms_ppm_error_quartiles",
+        qc_name="precursor ppm deviation distribution",
+        qc_description=("The quantiles of the distribution of observed precursor mass accuracies (MS:4000072) [in ppm] of identified MS2 spectra after user-defined acceptance criteria (FDR) are applied. "
+            "E.g. one value triplet represents the quartiles Q1, Q2, Q3."),
+        value=np.percentile(ppm_error, [25, 50, 75]),   # calculate 1st, 2nd and 3rd quartile of ppm deviations
+        value_shape=(3,),
+        value_type="float64",
+        unit_accession="UO:0000169",
+        unit_name="parts per million",
+    )
+
+    mzhdf5.add_entry_to_hdf5(
+        f=out_hdf5,
+        qc_acc="MS:4000178",
+        qc_short_name="filtered_psms_ppm_error_mean",
+        qc_name="precursor ppm deviation mean",
+        qc_description=("The mean of the distribution of observed precursor mass accuracies (MS:4000072) [in ppm] of identified MS2 spectra after user-defined acceptance criteria (FDR) are applied."),
+        value=np.mean(ppm_error),
+        value_shape=(1,),
+        value_type="float64",
+        unit_accession="UO:0000169",
+        unit_name="parts per million",
+    )
+
+    mzhdf5.add_entry_to_hdf5(
+        f=out_hdf5,
+        qc_acc="MS:4000179",
+        qc_short_name="filtered_psms_ppm_error_sigma",
+        qc_name="precursor ppm deviation sigma",
+        qc_description=("The standard deviation of the distribution of observed precursor mass accuracies (MS:4000072) [in ppm] of identified MS2 spectra after user-defined acceptance criteria (FDR) are applied."),
+        value=np.std(ppm_error),
+        value_shape=(1,),
+        value_type="float64",
+        unit_accession="UO:0000169",
+        unit_name="parts per million",
+    )
+
     if store_all_infos and (unfiltered_psms is not None):
         # TODO: fix in PIA
         unfiltered_psms["modifications"] = unfiltered_psms["modifications"].astype("str")
@@ -219,9 +261,15 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         psms_data = [unfiltered_psms[x].astype("str") for x in column_names]
         column_types = unfiltered_psms.dtypes.astype("str").tolist()
 
-        add_table_to_hdf5(out_hdf5,
-                        "identified_psms_table", "identified_psms_table", "table of all unfiltered identified PSMs", "All identified PSM as reported by PIA", 
-                        column_names, psms_data, column_types
+        mzhdf5.add_table_to_hdf5(
+            f=out_hdf5,
+            qc_acc="LOCAL:identified_psms_table",
+            qc_short_name="identified_psms_table",
+            qc_name="table of all unfiltered identified PSMs",
+            qc_description="All identified PSM as reported by PIA",
+            column_names=column_names,
+            column_data=psms_data,
+            column_types=column_types,
         )
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ include {retrieve_spike_ins_information} from './src/retrieve_spike_ins.nf'
 include {get_feature_metrics} from './src/feature_detection.nf'
 include {get_headers; get_mzml_infos} from './src/metrics/ms_run_metrics.nf'
 include {combine_metric_hdf5} from './src/io/combine_metric_hdf5.nf'
+include {hdf5_to_mzqc} from './src/mzqc.nf'
 include {output_processing_success} from './src/io/output_processing_success.nf'
 include {visualization} from './src/visualization.nf'
 
@@ -42,7 +43,9 @@ workflow {
 			params.height_pca,
 			params.width_pca,
 			params.height_ionmaps,
-			params.width_ionmaps
+			params.width_ionmaps,
+			params.visualization_mem, 
+			params.spike_ins_table
 		)
 	} else {
 		// complete workflow
@@ -138,7 +141,7 @@ workflow {
 				params.identification__pia_gb_ram,
 				params.identification__pia_fdr_threshold
 			)
-	}
+		}
 
 		// extract spike-ins information
 		if (params.search_spike_ins) {
@@ -196,6 +199,8 @@ workflow {
 
 		combined_metrics = combine_metric_hdf5(hdf5s_per_run, params.main_outdir)
 
+		hdf5_to_mzqc(combined_metrics, params.main_outdir)
+
 		// Visualize the results (and move them to the results folder)
 		visualization(
 			combined_metrics,
@@ -211,7 +216,9 @@ workflow {
 			params.height_pca,
 			params.width_pca,
 			params.height_ionmaps,
-			params.width_ionmaps
+			params.width_ionmaps, 
+			params.visualization_mem, 
+			params.spike_ins_table
 		)
 
 		output_processing_success(

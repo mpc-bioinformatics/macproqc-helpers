@@ -104,6 +104,11 @@
           "type": "integer",
           "default": 10,
           "description": "Width of the ion maps in inches"
+        },
+        "visualization_mem": {
+          "type": "string",
+          "default": "16.GB",
+          "description": "Memory used for the visualization process"
         }
       }
     },
