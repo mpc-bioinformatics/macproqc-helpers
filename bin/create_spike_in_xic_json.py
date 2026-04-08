@@ -4,6 +4,7 @@ import csv
 import json
 import argparse
 from statistics import mean
+from pyteomics import proforma
 
 def argparse_setup():
     parser = argparse.ArgumentParser()
@@ -38,8 +39,12 @@ if __name__ == "__main__":
             mz_tol_split = str(l[mz_tol_idx]).split(sep=" ")
             rt_tol = float(l[rt_tol_idx]) / 60
             
+            # transform the proforma sequence to a plain sequence (only amino acids, no modifications) to be able to check for identifications, which are only annotated with plain sequences
+            proforma_sequence = proforma.parse(str(l[seq_idx]))
+            plain_sequence = "".join(aa for aa, mods in proforma_sequence[0])
+            
             # map from the sequence to all other data (basically our json)
-            seq_to_data[l[seq_idx]] = {
+            seq_to_data[plain_sequence] = {
                 "comment": str(l[name_idx]),
                 "mz": float(l[mz_idx]),
                 "tolerance": float(mz_tol_split[0]),

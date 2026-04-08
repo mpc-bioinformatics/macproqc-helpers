@@ -22,9 +22,10 @@ workflow visualization {
         height_ionmaps
         width_ionmaps
         visualization_mem
+        spike_ins_table
 
     main:
-        visualize_results(combined_metrics, main_outdir, rt_unit, output_column_order, spikein_columns, output_table_type, figure_format, search_spike_ins, height_barplots, width_barplots, height_pca, width_pca, height_ionmaps, width_ionmaps, visualization_mem)
+        visualize_results(combined_metrics, main_outdir, rt_unit, output_column_order, spikein_columns, output_table_type, figure_format, search_spike_ins, height_barplots, width_barplots, height_pca, width_pca, height_ionmaps, width_ionmaps, visualization_mem, spike_ins_table)
 
     emit:
         jsons = visualize_results.out[0]
@@ -59,7 +60,8 @@ process visualize_results {
     val height_ionmaps
     val width_ionmaps
     val visualization_mem
-
+    val spike_ins_table
+    
     output:
     path("*.json"), optional: true
     path("*.html"), optional: true
@@ -73,9 +75,9 @@ process visualize_results {
     """
     if ${search_spike_ins}
     then 
-        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -spikeins -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -figure_format ${figure_format} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
+        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -spikeins -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -figure_format ${figure_format} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps} -spike_ins_table ${spike_ins_table}
     else
-        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -figure_format ${figure_format} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps}
+        QC_visualization.py -hdf5_files ${combined_metrics} -output "." -RT_unit ${rt_unit} -output_column_order ${output_column_order} -spikein_columns ${spikein_columns} -output_table_type ${output_table_type} -figure_format ${figure_format} -height_barplots ${height_barplots} -width_barplots ${width_barplots} -height_pca ${height_pca} -width_pca ${width_pca} -height_ionmaps ${height_ionmaps} -width_ionmaps ${width_ionmaps} -spike_ins_table ${spike_ins_table}
     fi
     """
 }

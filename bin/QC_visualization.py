@@ -159,7 +159,8 @@ def assemble_result_table(
     dataframes: Dict[str, Dict[str, pd.DataFrame]],
     dataframe_ids_short: List[str],
     spikein_columns: List[str] = ["Maximum_Intensity", "RT_at_Maximum_Intensity", "PSMs", "Delta_to_expected_RT"], 
-    RT_unit: str = "sec"
+    RT_unit: str = "sec", 
+    spike_ins_table: str = None,
     ) -> pd.DataFrame:
     """
     Assemble the result table
@@ -188,6 +189,8 @@ def assemble_result_table(
         Must be a subset of ["Maximum_Intensity", "RT_at_Maximum_Intensity", "PSMs", "Delta_to_expected_RT"].
     RT_unit : str
         Unit of the retention time, either sec for seconds or min for minutes.
+    spike_ins_table : str
+        Path to the spike-ins table file. Will be used to map the spike-in information to the name of the spike-in.
         
     Returns
     -------
@@ -260,7 +263,14 @@ def assemble_result_table(
                     spike_data["Delta_to_expected_RT"] = spike_data["retention time"] - spike_data["predicted retention time"]
                     #utf8 decoding of the proforma peptidoform sequence
                     spike_data['proforma peptidoform sequence'] = spike_data['proforma peptidoform sequence'].apply(lambda x: x.decode('utf8') if isinstance(x, bytes) else x)
-                    spike_in_list = spike_data['proforma peptidoform sequence'].astype(str).tolist()
+                    
+                    if spike_ins_table is not None:
+                        spike_ins_info = pd.read_csv(spike_ins_table, sep=",")
+                        print(spike_ins_info)
+                        spike_in_list = spike_ins_info['name'].astype(str).tolist()
+                    else:
+                        spike_in_list = spike_data['proforma peptidoform sequence'].astype(str).tolist()
+                    
                     spikein_columns = spike_data.columns.to_list()
                     
                     ## for each spike-in, extract the data
@@ -326,6 +336,7 @@ def argparse_setup():
     parser.add_argument("-width_pca", help = "Width of the PCA plots in pixels", default = 1000, type = int) # in pixels
     parser.add_argument("-height_ionmaps", help = "Height of the ionmaps in inches", default = 10, type = int)
     parser.add_argument("-width_ionmaps", help = "Width of the ionmaps in inches", default = 10, type = int)
+    parser.add_argument("-spike_ins_table", help = "Path to the spike-ins table file", default = None, type = str)
     return parser.parse_args()
 
 
@@ -463,7 +474,8 @@ if __name__ == "__main__":
         dataframes = dataframes,
         dataframe_ids_short = dataframe_ids_short,
         RT_unit = args.RT_unit, 
-        spikein_columns = args.spikein_columns.split(",")
+        spikein_columns = args.spikein_columns.split(","), 
+        spike_ins_table = args.spike_ins_table
     )
 
     # Sort values by filename

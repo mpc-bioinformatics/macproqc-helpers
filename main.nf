@@ -44,7 +44,8 @@ workflow {
 			params.width_pca,
 			params.height_ionmaps,
 			params.width_ionmaps,
-			params.visualization_mem
+			params.visualization_mem, 
+			params.spike_ins_table
 		)
 	} else {
 		// complete workflow
@@ -213,7 +214,8 @@ workflow {
 			params.width_pca,
 			params.height_ionmaps,
 			params.width_ionmaps, 
-			params.visualization_mem
+			params.visualization_mem, 
+			params.spike_ins_table
 		)
 
 		output_processing_success(
