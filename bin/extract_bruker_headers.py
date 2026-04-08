@@ -117,8 +117,6 @@ def get_calibrant_info(calibrant_mz, calibrant_mobility, mz_tolerance=10, mobili
 if __name__ == "__main__":
 
     args = argparse_setup()
-    args.d_folder = "/home/luxii/Desktop/raws/TIM0002803std_S1-A1_1_3068.d/"
-    args.out_hdf5 = "/home/luxii/Desktop/raws/delme.hdf5"
     con = sqlite3.connect(args.d_folder + os.sep + "analysis.tdf")
     cur = con.cursor()
 
