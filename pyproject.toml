@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+authors = [
+    { email = "julian.uszkoreit@rub.de", name = "Julian Uszkoreit" },
+    { email = "dirk.winkelhardt@rub.de", name = "Dirk Winkelhardt" },
+    { email = "karin.schork@rub.de", name = "Karin Schork" },
+    { email = "maike.weber@rub.de", name = "Maike Weber" },
+    { email = "dominik.lux@rub.de", name = "Dominik Lux" },
+]
+maintainers = [
+    { email = "cubimed@rub.de", name = "Ruhr-University Bochum / Medical Faculty / Core Unit Bioinformatics" },
+]
+name = "macproqc_helpers"
+version = "0.0.1"
+description = "Mass Spectrometry Quality Control Analysis Module"
+readme = "README.md"
+requires-python = ">=3.8"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "alphatims==1.0.9",
+    "Cython<3",
+    "fisher-py==1.0.21",
+    "h5py==3.11.0",
+    "matplotlib==3.7.5",
+    "numpy==1.26.4",
+    "openpyxl==3.1.5",
+    "pkgconfig",
+    "pandas==1.5.2",
+    "plotly==6.1.2",
+    "pymzqc==1.0.0",
+    "pyopenms==3.2.0",
+    "pyteomics==4.7.5",
+    "scikit-learn==1.3.2",
+    "sqlalchemy==2.0.41",
+]
+
+
+[project.optional-dependencies]
+dev = ["pytest>=6.0", "pytest-cov", "black", "flake8", "pylint"]
+
+[project.scripts]
+macproqc = "macproqc.cli:main"
+
+[tool.black]
+line-length = 100
+target-version = ["py38"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
