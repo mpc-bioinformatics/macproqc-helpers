@@ -1,4 +1,3 @@
-
 """
 MacProQC Command Line Interface
 
@@ -19,6 +18,7 @@ from macproqc_helpers.helpers import (
     collect_spikein_metrics,
     combine_hdf5_files,
     convert_mztab_to_idxml,
+    create_thermorawfileparser_xic_config,
     extract_xic_bruker,
     hdf5_to_mzqc,
     visualization,
@@ -28,37 +28,21 @@ from macproqc_helpers.helpers import (
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
-        description="MacProQC - Mass Spectrometry Quality Control Analysis",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  macproqc adjust-comet-params -comet_params in.params -params_out out.params
-  macproqc combine-hdf5 -hdf_out_name combined.hdf5 file1.hdf5 file2.hdf5
-  macproqc extract-mzml -mzml sample.mzml -out_hdf5 output.hdf5 -base_peak_tic_up_to 105 -filter_threshold 0.00001 -report_up_to_charge 5
-  macproqc hdf5-to-mzqc -hdf5 metrics.hdf5 -mzqc_out output.mzqc
-        """
+        description="MacProQC - Mass Spectrometry Quality Control Analysis Helpers",
     )
-    
-    parser.add_argument(
-        "--version",
-        action="version",
-        version="%(prog)s 1.0.0"
-    )
-    
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose output"
-    )
-    
+
+    parser.add_argument("--version", action="version", version="%(prog)s 1.0.0")
+
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+
     # Create subparsers for commands
     subparsers = parser.add_subparsers(
         title="Commands",
         description="Available analysis commands",
         dest="command",
-        help="Command to execute"
+        help="Command to execute",
     )
-    
+
     # Register all command parsers
     adjust_comet_params.argparse_setup(subparsers)
     collect_metrics_from_bruker.argparse_setup(subparsers)
@@ -69,11 +53,11 @@ Examples:
     collect_spikein_metrics.argparse_setup(subparsers)
     combine_hdf5_files.argparse_setup(subparsers)
     convert_mztab_to_idxml.argparse_setup(subparsers)
+    create_thermorawfileparser_xic_config.argparse_setup(subparsers)
     extract_xic_bruker.argparse_setup(subparsers)
     hdf5_to_mzqc.argparse_setup(subparsers)
     visualization.argparse_setup(subparsers)
 
-    
     return parser
 
 
@@ -81,12 +65,12 @@ def main(argv=None) -> int:
     """Main entry point for the CLI."""
     parser = create_parser()
     args = parser.parse_args(argv)
-    
+
     # If no command is specified, print help
-    if not hasattr(args, 'func'):
+    if not hasattr(args, "func"):
         parser.print_help()
         return 1
-    
+
     try:
         args.func(args)
         return 0
@@ -94,6 +78,7 @@ def main(argv=None) -> int:
         print(f"Error: {e}", file=sys.stderr)
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 
