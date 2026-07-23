@@ -8,7 +8,10 @@ dependencies:
   - pip
   - setuptools
   - bioconda::libopenms = 3.2.0
+  - conda-forge::hdf5 = 1.14.3        # needede for libopenms
+  - conda-forge::qt-main = 5.15.8     # needede for libopenms (this version is not mentioned but needed by OpenMS)
   - conda-forge::mono ~= 6.12
   - conda-forge::compilers = 1.8.0
+  - conda-forge::xerces-c = 3.2.5     # needede for libopenms
   - pip:
     - -e .
