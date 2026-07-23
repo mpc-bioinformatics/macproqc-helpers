@@ -9,7 +9,6 @@ import argparse
 import sys
 
 from macproqc_helpers.helpers import (
-    adjust_comet_params,
     collect_metrics_from_bruker,
     collect_metrics_from_featurexml,
     collect_metrics_from_mzml,
@@ -44,7 +43,6 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # Register all command parsers
-    adjust_comet_params.argparse_setup(subparsers)
     collect_metrics_from_bruker.argparse_setup(subparsers)
     collect_metrics_from_featurexml.argparse_setup(subparsers)
     collect_metrics_from_mzml.argparse_setup(subparsers)
