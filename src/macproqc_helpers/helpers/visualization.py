@@ -599,7 +599,7 @@ def visualize(args: argparse.Namespace) -> None:
     tic_df2 = pd.concat(tic_df)
     
     if args.RT_unit == "min":
-        tic_df2["scond"] = tic_df2["second"]/60
+        tic_df2["second"] = tic_df2["second"]/60
    
     fig04 = px.line(tic_df2, x="second", y="total ion current", color = "filename", title = "TIC overlay")
     fig04.update_traces(line=dict(width=0.5))
@@ -1301,9 +1301,9 @@ def visualize(args: argparse.Namespace) -> None:
                     "y": y
                 })
                 
-                ### transform time to minutes if necessary
-                if args.RT_unit == "min":
-                    df_tmp["x"] = df_tmp["x"]/60
+                ### transform time to seconds if necessary (is given in minutes TODO: check if this is correct for Bruker)
+                if args.RT_unit == "sec":
+                    df_tmp["x"] = df_tmp["x"]*60
                 
             
                 if not df_tmp.empty:
