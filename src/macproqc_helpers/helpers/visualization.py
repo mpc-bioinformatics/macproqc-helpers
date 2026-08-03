@@ -326,7 +326,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument("-group", help="List of the experimental group (comma-separated).", default=None)  ### TODO: input table with group information
     parser.add_argument("-RT_unit", help="Unit of the retention time, either sec for seconds or min for minutes.", default = "sec")
     parser.add_argument("-fig_show", help = "Show figures, e.g. for debugging?", default = False, action = "store_true")
-    parser.add_argument("-output_column_order", help = "Order of columns in the output table", default = "", type = str)
+    parser.add_argument("-output_column_order", help = "Order of columns in the output table", default = None, type = str)
     parser.add_argument("-spikein_columns", help = "Columns of the spike-in dataframes that should end up in the result table", default = "MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT", type = str)
     parser.add_argument("-height_barplots", help = "Height of the barplots in pixels", default = 700, type = int) # in pixels
     parser.add_argument("-width_barplots", help = "Width of the barplots in pixels", default = 0, type = int) # default 0: flexible width, in pixels
@@ -424,7 +424,7 @@ def visualize(args: argparse.Namespace) -> None:
     ##########################################################################################
     ### order of columns for output table
     
-    if args.output_column_order == "":  ### take default column order
+    if args.output_column_order is None:  ### take default column order
         metric_list = [
             "filename",
             "startTime",
