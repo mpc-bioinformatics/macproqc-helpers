@@ -97,7 +97,7 @@ def collect(args: argparse.Namespace) -> None:
         num_ms1_spectra = 0
         num_ms2_spectra = 0
         num_ms2_prec_charges = defaultdict(lambda: 0)
-        last_spectrum = exp.getSpectra(0) # Just a starting point
+        last_spectrum = None # There is no way to retrieve the last spectrum, except saving the last one
         for spectrum in exp.getSpectra():
             if spectrum.getMSLevel() == 1:
                 num_ms1_spectra += 1
