@@ -39,7 +39,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.set_defaults(func=extract)
 
 
-def get_calibrant_info(calibrant_mz, calibrant_mobility, mz_tolerance=10, mobility_tolerance=0.1):
+def get_calibrant_info(bruker_data, calibrant_mz, calibrant_mobility, mz_tolerance=10, mobility_tolerance=0.1):
     """
     Gets the calibrants and returns, three arrays: RT, MZ and Mobility values.
 
@@ -53,7 +53,7 @@ def get_calibrant_info(calibrant_mz, calibrant_mobility, mz_tolerance=10, mobili
     calibrant_lower_mobility = calibrant_mobility - mobility_tolerance
     calibrant_upper_mobility = calibrant_mobility + mobility_tolerance
 
-    calibrant_values = br_d[
+    calibrant_values = bruker_data[
         :,
         calibrant_lower_mobility: calibrant_upper_mobility,
         slice(0,1),
@@ -71,7 +71,6 @@ def get_calibrant_info(calibrant_mz, calibrant_mobility, mz_tolerance=10, mobili
 
 
 def extract(args: argparse.Namespace) -> None:
-
     con = sqlite3.connect(args.d_folder + os.sep + "analysis.tdf")
     cur = con.cursor()
 
@@ -201,7 +200,7 @@ def extract(args: argparse.Namespace) -> None:
         )
 
         # Add Calibrants Info:
-        br_d = TimsTOF(args.d_folder)
+        br_data = TimsTOF(args.d_folder)
 
         try:
             column_name = ["calibrant_mz", "calibrant_mobility", "observed_calibrant_rt", "observed_calibrant_mz", "observed_calibrant_mobility"]
@@ -214,6 +213,7 @@ def extract(args: argparse.Namespace) -> None:
                 mobility = float(mobility)
 
                 calibrant_rts, calibrant_mzs, calibrant_mobilities = get_calibrant_info(
+                    br_data,
                     mz,
                     mobility,
                     mz_tolerance=args.calibrants_mz_tolerance,
