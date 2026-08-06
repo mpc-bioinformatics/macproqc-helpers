@@ -1069,7 +1069,7 @@ def visualize(args: argparse.Namespace) -> None:
         with open(output_path + os.sep + "fig12a_PCA_all.plotly.json", "w") as json_file:
             json_file.write(plotly.io.to_json(fig12))
         with open(output_path + os.sep + "fig12b_Loadings_all.plotly.json", "w") as json_file:
-            json_file.write(plotly.io.to_json(fig11_loadings))
+            json_file.write(plotly.io.to_json(fig12_loadings))
     if fig_html:
         fig12.write_html(file = output_path + os.sep + "fig12a_PCA_all.html", auto_open = False)
         fig12_loadings.write_html(file = output_path + os.sep + "fig12b_Loadings_all.html", auto_open = False)
