@@ -326,7 +326,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument("-group", help="List of the experimental group (comma-separated).", default=None)  ### TODO: input table with group information
     parser.add_argument("-RT_unit", help="Unit of the retention time, either sec for seconds or min for minutes.", default = "sec")
     parser.add_argument("-fig_show", help = "Show figures, e.g. for debugging?", default = False, action = "store_true")
-    parser.add_argument("-output_column_order", help = "Order of columns in the output table", default = "", type = str)
+    parser.add_argument("-output_column_order", help = "Order of columns in the output table", default = None, type = str)
     parser.add_argument("-spikein_columns", help = "Columns of the spike-in dataframes that should end up in the result table", default = "MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT", type = str)
     parser.add_argument("-height_barplots", help = "Height of the barplots in pixels", default = 700, type = int) # in pixels
     parser.add_argument("-width_barplots", help = "Width of the barplots in pixels", default = 0, type = int) # default 0: flexible width, in pixels
@@ -424,7 +424,7 @@ def visualize(args: argparse.Namespace) -> None:
     ##########################################################################################
     ### order of columns for output table
     
-    if args.output_column_order == "":  ### take default column order
+    if args.output_column_order is None:  ### take default column order
         metric_list = [
             "filename",
             "startTime",
@@ -599,7 +599,7 @@ def visualize(args: argparse.Namespace) -> None:
     tic_df2 = pd.concat(tic_df)
     
     if args.RT_unit == "min":
-        tic_df2["scond"] = tic_df2["second"]/60
+        tic_df2["second"] = tic_df2["second"]/60
    
     fig04 = px.line(tic_df2, x="second", y="total ion current", color = "filename", title = "TIC overlay")
     fig04.update_traces(line=dict(width=0.5))
@@ -1069,7 +1069,7 @@ def visualize(args: argparse.Namespace) -> None:
         with open(output_path + os.sep + "fig12a_PCA_all.plotly.json", "w") as json_file:
             json_file.write(plotly.io.to_json(fig12))
         with open(output_path + os.sep + "fig12b_Loadings_all.plotly.json", "w") as json_file:
-            json_file.write(plotly.io.to_json(fig11_loadings))
+            json_file.write(plotly.io.to_json(fig12_loadings))
     if fig_html:
         fig12.write_html(file = output_path + os.sep + "fig12a_PCA_all.html", auto_open = False)
         fig12_loadings.write_html(file = output_path + os.sep + "fig12b_Loadings_all.html", auto_open = False)
@@ -1301,9 +1301,9 @@ def visualize(args: argparse.Namespace) -> None:
                     "y": y
                 })
                 
-                ### transform time to minutes if necessary
-                if args.RT_unit == "min":
-                    df_tmp["x"] = df_tmp["x"]/60
+                ### transform time to seconds if necessary (is given in minutes TODO: check if this is correct for Bruker)
+                if args.RT_unit == "sec":
+                    df_tmp["x"] = df_tmp["x"]*60
                 
             
                 if not df_tmp.empty:
