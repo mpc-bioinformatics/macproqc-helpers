@@ -738,11 +738,10 @@ def visualize(args: argparse.Namespace) -> None:
         for file in hdf5_file_names:
             df_tmp = dataframes[file]["PSM_charge_fractions"]
             df_tmp['charge state'] = df_tmp['charge state'].replace(max(df_tmp['charge state']), 'more')
-            df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+            #df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
             df_tmp["filename"] = [file]*df_tmp.shape[0]
             PSM_charge_df_list.append(df_tmp)
         df_pl09_long = pd.concat(PSM_charge_df_list)
-        #df_pl09_long.rename(columns = {"variable": "PSM_charge", "value": "fraction"}, inplace = True)
         
         fig09 = px.bar(df_pl09_long, x="filename", y="fraction", color="charge state", title = "Charge states of PSMs")
         fig09.update_xaxes(tickangle=-90)
@@ -1062,7 +1061,7 @@ def visualize(args: argparse.Namespace) -> None:
         with open(output_path + os.sep + "fig12a_PCA_all.plotly.json", "w") as json_file:
             json_file.write(plotly.io.to_json(fig12))
         with open(output_path + os.sep + "fig12b_Loadings_all.plotly.json", "w") as json_file:
-            json_file.write(plotly.io.to_json(fig11_loadings))
+            json_file.write(plotly.io.to_json(fig12_loadings))
     if fig_html:
         fig12.write_html(file = output_path + os.sep + "fig12a_PCA_all.html", auto_open = False)
         fig12_loadings.write_html(file = output_path + os.sep + "fig12b_Loadings_all.html", auto_open = False)
