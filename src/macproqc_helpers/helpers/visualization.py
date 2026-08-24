@@ -452,7 +452,7 @@ def visualize(args: argparse.Namespace) -> None:
             "nr_protein_groups",
             "nr_accessions",
             "PSM_charge_fractions",
-            "PSM_missed_cleavage_counts",
+            "PSM_missed_cleavages_fractions",
             "nr_features",
             "nr_ident_features",
             "features_charges",
@@ -477,9 +477,7 @@ def visualize(args: argparse.Namespace) -> None:
     )
 
     # Sort values by filename
-    #df_table0 = df_table0.sort_values(by = "filename", ascending=True)  
     single_values = single_values.sort_values(by = "filename", ascending=True)
-
 
     if args.output_table_type == "csv":
         df_table0.to_csv(output_path + os.sep + "00_table_summary.csv", index = False)
@@ -740,11 +738,10 @@ def visualize(args: argparse.Namespace) -> None:
         for file in hdf5_file_names:
             df_tmp = dataframes[file]["PSM_charge_fractions"]
             df_tmp['charge state'] = df_tmp['charge state'].replace(max(df_tmp['charge state']), 'more')
-            df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
+            #df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
             df_tmp["filename"] = [file]*df_tmp.shape[0]
             PSM_charge_df_list.append(df_tmp)
         df_pl09_long = pd.concat(PSM_charge_df_list)
-        #df_pl09_long.rename(columns = {"variable": "PSM_charge", "value": "fraction"}, inplace = True)
         
         fig09 = px.bar(df_pl09_long, x="filename", y="fraction", color="charge state", title = "Charge states of PSMs")
         fig09.update_xaxes(tickangle=-90)
@@ -777,21 +774,16 @@ def visualize(args: argparse.Namespace) -> None:
 ################################################################################################
     # Figure 10: Missed cleavages of PSMs (normalized between 0 and 1 in "fractions")
 
-    if ("PSM_missed_cleavage_counts" in dataframes[hdf5_file_names[0]].keys()):
+    if ("PSM_missed_cleavages_fractions" in dataframes[hdf5_file_names[0]].keys()):
         PSM_missed_df_list = []
         for file in hdf5_file_names:
-            df_tmp = dataframes[file]["PSM_missed_cleavage_counts"]
+            df_tmp = dataframes[file]["PSM_missed_cleavages_fractions"]
             df_tmp['number of missed cleavages'] = df_tmp['number of missed cleavages'].replace(max(df_tmp['number of missed cleavages']), 'more')
-            #df_tmp['charge state'] = df_tmp['charge state'].replace(0, 'Unknown')
             df_tmp["filename"] = [file]*df_tmp.shape[0]
             PSM_missed_df_list.append(df_tmp)
         df_pl10_long = pd.concat(PSM_missed_df_list)
-        df_pl10_long_perc = df_pl10_long.copy()
-        # calculate fraction instead of absolute counts
-        df_pl10_long_perc["Number of Occurrences"] = df_pl10_long["Number of Occurrences"]/df_pl10_long.groupby("filename")["Number of Occurrences"].transform("sum")
-        df_pl10_long_perc.rename(columns = {"Number of Occurrences": "Fraction"}, inplace = True)
         
-        fig10 = px.bar(df_pl10_long_perc, x="filename", y="Fraction", color="number of missed cleavages", title = "Fraction of missed cleavages for PSMs")
+        fig10 = px.bar(df_pl10_long, x="filename", y="fraction", color="number of missed cleavages", title = "Fraction of missed cleavages for PSMs")
         fig10.update_xaxes(tickangle=-90)
         fig10.update_layout(height = int(args.height_barplots))
         if args.width_barplots > 0:
@@ -948,7 +940,7 @@ def visualize(args: argparse.Namespace) -> None:
         with open(output_path + os.sep + "fig11b_Loadings_raw.plotly.json", "w") as json_file:
             json_file.write(plotly.io.to_json(fig11_loadings))
     if fig_html:
-        fig11.write_html(file = output_path + os.sep + "fig11_PCA_raw.html", auto_open = False)
+        fig11.write_html(file = output_path + os.sep + "fig11a_PCA_raw.html", auto_open = False)
         fig11_loadings.write_html(file = output_path + os.sep + "fig11b_Loadings_raw.html", auto_open = False)
  
     ### save loadings as tables
@@ -971,7 +963,7 @@ def visualize(args: argparse.Namespace) -> None:
             "nr_protein_groups",
             "nr_accessions",
             "PSM_charge_fractions",
-            "PSM_missed_cleavage_counts",
+            "PSM_missed_cleavages_fractions",
             "nr_features",
             "nr_ident_features",
             "features_charges",
@@ -1147,11 +1139,11 @@ def visualize(args: argparse.Namespace) -> None:
     
     pump_df = []
     for file in hdf5_file_names:
-        if ("Pump_Pressure" not in dataframes[file].keys()):
+        if ("pump_pressure" not in dataframes[file].keys()):
             # Skip, there is no data available for this hdf5 file
             continue
         
-        df_tmp_long = dataframes[file]["Pump_Pressure"]
+        df_tmp_long = dataframes[file]["pump_pressure"]
         # use not more than roughly 10000 data points. If data has more than 10000 data points, take every nth data point        
         if df_tmp_long.shape[0] > 10000: 
             samples = int(df_tmp_long.shape[0] / 10000)
@@ -1168,9 +1160,9 @@ def visualize(args: argparse.Namespace) -> None:
         ### x Axis data for pump pressure are in minutes, convert to seconds if necessary
         ### (this only holds for Thermo, for Bruker something is strange -> TODO)
         if args.RT_unit == "sec":
-            df_fig14_long["pump_pressure_x_axis"] = df_fig14_long["pump_pressure_x_axis"]*60
+            df_fig14_long["retention time"] = df_fig14_long["retention time"]*60
         
-        fig14 = px.line(df_fig14_long, x="pump_pressure_x_axis", y="pump_pressure_y_axis", color = "filename", title = "Pump Pressure")
+        fig14 = px.line(df_fig14_long, x="retention time", y="pressure unit", color = "filename", title = "Pump Pressure")
         fig14.update_traces(line=dict(width=0.5))
         fig14.update_yaxes(exponentformat="E") 
         fig14.update_layout(height = int(args.height_barplots))
@@ -1182,10 +1174,6 @@ def visualize(args: argparse.Namespace) -> None:
             fig14.update_layout(xaxis_title = "Time (sec)")
         elif args.RT_unit == "min":
             fig14.update_layout(xaxis_title = "Time (min)")
-        
-        
-        # fig14.write_html(file = output_path + os.sep + "fig14_Pump_pressure.html", auto_open = False)
-
     if fig_show:
         fig14.show()
     if fig_plotly:
