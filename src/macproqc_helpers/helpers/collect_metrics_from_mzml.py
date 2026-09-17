@@ -1,6 +1,7 @@
 import argparse
 from collections import defaultdict
 import datetime
+import logging
 import math
 import time
 
@@ -9,6 +10,8 @@ import numpy as np
 import pyopenms
 
 import macproqc_helpers.utils.hdf5 as mzhdf5
+
+logger = logging.getLogger(__name__)
 
 def argparse_setup(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
@@ -20,119 +23,207 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument("-base_peak_tic_up_to", required=True, type=int, help="Base peak TIC up to X minutes (e.g. 105)")
     parser.add_argument("-filter_threshold", required=True, type=float, help="Filter threshold (e.g. 0.00001)")
     parser.add_argument("-report_up_to_charge", required=True, type=int, help="Report up to charge (e.g. 5)")
+    parser.add_argument("-ms1_map_rt_bins", type=int, default=1000, help="Number of retention time grid cells for the bilinearly-interpolated MS1 ion map (LOCAL:rtMzIntensityMS1).")
+    parser.add_argument("-ms1_map_mz_bins", type=int, default=1000, help="Number of m/z grid cells for the bilinearly-interpolated MS1 ion map (LOCAL:rtMzIntensityMS1).")
     parser.set_defaults(func=collect)
 
 
-# Total Ion Current Calculation taken from:
-# https://pyopenms.readthedocs.io/en/latest/first_steps.html?highlight=TIC#total-ion-current-calculation
-# This Could be the columns "accumulated-MS1_TIC" and "accumulated-MS2_TIC"
-def get_accumulated_TIC(exp, mslevel):
-    return sum(
-        [
-            sum(s.get_peaks()[1]) # Simply sum all the peaks up
-            for s in exp if s.getMSLevel() == mslevel # Filter for only summing up of "a" MSLevel
-        ]
+def _open_experiment(path: str):
+    """Open an mzML file for indexed, on-demand per-spectrum access.
+
+    OnDiscMSExperiment reads one spectrum at a time from disk instead of
+    loading every spectrum's full peak data into memory up front, which is
+    what made this step run out of memory on large runs. It requires the
+    mzML to carry a valid <indexList> (true for ThermoRawFileParser output);
+    if that's not the case (e.g. some tdf2mzml-produced Bruker mzML), fall
+    back to the old full in-memory load rather than failing outright.
+    """
+    ondisc = pyopenms.OnDiscMSExperiment()
+    if ondisc.openFile(path):
+        return ondisc
+    logger.warning(
+        "mzML file '%s' has no usable index for streaming access; falling "
+        "back to loading it fully into memory. This may use significantly "
+        "more memory for large files.",
+        path,
     )
+    exp = pyopenms.MSExperiment()
+    pyopenms.MzMLFile().load(path, exp)
+    return exp
+
+
+def _freq_max_hz(rt_list, window_seconds: float = 60.0) -> float:
+    """Fastest acquisition frequency: the largest number of entries whose RT
+    falls within any `window_seconds`-wide window, divided by that window.
+
+    Equivalent to, for every i, counting entries with rt[i] <= rt <=
+    rt[i]+window and taking the max - but done in O(n log n) via
+    searchsorted on a sorted copy, instead of the O(n^2) nested loop this
+    replaces (which also allocated a full boolean mask per entry).
+    """
+    if not rt_list:
+        return 0.0
+    rt = np.sort(np.asarray(rt_list, dtype=np.float64))
+    left = np.searchsorted(rt, rt, side="left")
+    right = np.searchsorted(rt, rt + window_seconds, side="right")
+    counts = right - left
+    return counts.max() / window_seconds
 
 
 def collect(args: argparse.Namespace) -> None:
     base_peak_tic_up_to = args.base_peak_tic_up_to
     filter_threshold = args.filter_threshold
     report_up_to_charge = args.report_up_to_charge
+    ms1_map_rt_bins = args.ms1_map_rt_bins
+    ms1_map_mz_bins = args.ms1_map_mz_bins
 
-    # # Load MZML
-    exp = pyopenms.MSExperiment()
-    pyopenms.MzMLFile().load(args.mzml, exp)
+    # Load MZML for indexed, on-demand per-spectrum access (falls back to a
+    # full in-memory load if the file isn't indexed)
+    exp = _open_experiment(args.mzml)
+    n_spectra = exp.getNrSpectra()
+    is_ondisc = isinstance(exp, pyopenms.OnDiscMSExperiment)
 
     # Open HDF5 file in write mode
     with h5py.File(args.out_hdf5, 'w') as out_h5:
 
         try:
             # Get Date and Time of measurement
-            hh_mm_ss_str = exp.getDateTime().getTime()
-            yy_mm_dd_str = exp.getDateTime().getDate() # could also be yy_mm_dd
+            date_time = exp.getExperimentalSettings().getDateTime() if is_ondisc else exp.getDateTime()
+            hh_mm_ss_str = date_time.getTime()
+            yy_mm_dd_str = date_time.getDate() # could also be yy_mm_dd
             start_time = time.mktime(datetime.datetime.strptime(yy_mm_dd_str + "|" + hh_mm_ss_str , "%Y-%m-%d|%H:%M:%S").timetuple())
         except:
             start_time = -1
 
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, 
-            qc_acc = "LOCAL:startTime", 
-            qc_short_name = "startTime", 
-            qc_name = "Start time of MS since epoch", 
-            qc_description = "Start time of the MS run, in local time in seconds since the Epoch. It is set to -1 if no data is available.", 
-            value = start_time, 
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "", 
-            unit_name = ""
-        )        
-
-        # Get accumulated TICs for MS1 and MS2
-        mzhdf5.add_entry_to_hdf5(
-            f = out_h5, qc_acc = "MS:4000029", 
-            qc_short_name = "accumulated_MS1_TIC", 
-            qc_name = "area under TIC in MS1", 
-            qc_description = "The area under the total ion current chromatogram (MS:1000235) of all MS1 spectra.", 
-            value = get_accumulated_TIC(exp, 1), 
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "", 
+            f = out_h5,
+            qc_acc = "LOCAL:startTime",
+            qc_short_name = "startTime",
+            qc_name = "Start time of MS since epoch",
+            qc_description = "Start time of the MS run, in local time in seconds since the Epoch. It is set to -1 if no data is available.",
+            value = start_time,
+            value_shape = (1,),
+            value_type = "float64",
+            unit_accession = "",
             unit_name = ""
         )
 
-        mzhdf5.add_entry_to_hdf5(
-            f = out_h5, qc_acc = "MS:4000030", 
-            qc_short_name = "accumulated_MS2_TIC", 
-            qc_name = "area under TIC in MS2", 
-            qc_description = "The area under the total ion current chromatogram (MS:1000235) of all MS2 spectra.", 
-            value = get_accumulated_TIC(exp, 2), 
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "", 
-            unit_name = ""
-        )
-
-        # Get Number of MS 1 and 2 Spectra and also the precursors of the MS2 by counted charge
+        # Single streaming pass over all spectra (read once from disk, one
+        # spectrum's peak data in memory at a time), replacing the five
+        # separate full scans the previous implementation did over a fully
+        # in-memory-loaded MSExperiment.
         num_ms1_spectra = 0
         num_ms2_spectra = 0
         num_ms2_prec_charges = defaultdict(lambda: 0)
-        last_spectrum = None # There is no way to retrieve the last spectrum, except saving the last one
-        for spectrum in exp.getSpectra():
-            if spectrum.getMSLevel() == 1:
+
+        ms1_ms2_rt = []
+        ms1_ms2_tic = []
+        ms1_ms2_basepeaks = []
+
+        ms1_rt = []       # This is the MS1-RT-BLOB
+        ms1_tic = []      # This is the MS1-TIC-BLOB
+        ms1_num_peaks = []
+        ms1_indices = []  # spectrum indices with MS level 1, for the ion-map pass below
+
+        ms2_rt = []  # This is the MS2-RT-BLOB
+        ms2_tic = [] # This is the MS2-TIC-BLOB
+        ms2_num_peaks = []
+        ms2_mz = []  # This is the MS2-MZ-BLOB (needed or the Ion-Map)
+
+        accumulated_ms1_tic = 0.0
+        accumulated_ms2_tic = 0.0
+        mz_min = math.inf
+        mz_max = -math.inf
+        last_rt = None
+
+        for i in range(n_spectra):
+            spectrum = exp.getSpectrum(i)
+            level = spectrum.getMSLevel()
+            rt = spectrum.getRT()
+            mz, intens = spectrum.get_peaks()
+            npeaks = len(intens)
+            tic_i = sum(intens)
+            basepeak_i = max(intens) if npeaks != 0 else 0
+
+            ms1_ms2_rt.append(rt)
+            ms1_ms2_tic.append(tic_i)
+            ms1_ms2_basepeaks.append(basepeak_i)
+            last_rt = rt
+
+            if level == 1:
                 num_ms1_spectra += 1
-            elif spectrum.getMSLevel() == 2:
-                num_ms2_spectra +=1
-                num_ms2_prec_charges[spectrum.getPrecursors()[0].getCharge()] += 1
-            last_spectrum = spectrum
+                ms1_indices.append(i)
+                ms1_rt.append(rt)
+                ms1_tic.append(tic_i)
+                ms1_num_peaks.append(npeaks)
+                accumulated_ms1_tic += tic_i
+                if npeaks != 0:
+                    mz_min = min(mz_min, mz.min())
+                    mz_max = max(mz_max, mz.max())
+            elif level == 2:
+                num_ms2_spectra += 1
+                ms2_rt.append(rt)
+                ms2_tic.append(tic_i)
+                ms2_num_peaks.append(npeaks)
+                accumulated_ms2_tic += tic_i
+                precs = spectrum.getPrecursors()
+                if len(precs) != 1:
+                    raise Exception("Unexpected number of precursors in a MS2-Spectrum")
+                ms2_mz.append(precs[0].getMZ())
+                num_ms2_prec_charges[precs[0].getCharge()] += 1
+
+        # Get accumulated TICs for MS1 and MS2
+        mzhdf5.add_entry_to_hdf5(
+            f = out_h5, qc_acc = "MS:4000029",
+            qc_short_name = "accumulated_MS1_TIC",
+            qc_name = "area under TIC in MS1",
+            qc_description = "The area under the total ion current chromatogram (MS:1000235) of all MS1 spectra.",
+            value = accumulated_ms1_tic,
+            value_shape = (1,),
+            value_type = "float64",
+            unit_accession = "",
+            unit_name = ""
+        )
 
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000059", 
-            qc_short_name = "nr_MS1", 
-            qc_name = "number of MS1 spectra", 
-            qc_description = "The number of MS1 events in the run.", 
-            value = num_ms1_spectra, 
-            value_shape = (1,), 
-            value_type = "uint64", 
-            unit_accession = "UO:0000189", 
+            f = out_h5, qc_acc = "MS:4000030",
+            qc_short_name = "accumulated_MS2_TIC",
+            qc_name = "area under TIC in MS2",
+            qc_description = "The area under the total ion current chromatogram (MS:1000235) of all MS2 spectra.",
+            value = accumulated_ms2_tic,
+            value_shape = (1,),
+            value_type = "float64",
+            unit_accession = "",
+            unit_name = ""
+        )
+
+        mzhdf5.add_entry_to_hdf5(
+            f = out_h5,
+            qc_acc = "MS:4000059",
+            qc_short_name = "nr_MS1",
+            qc_name = "number of MS1 spectra",
+            qc_description = "The number of MS1 events in the run.",
+            value = num_ms1_spectra,
+            value_shape = (1,),
+            value_type = "uint64",
+            unit_accession = "UO:0000189",
             unit_name = "count unit"
         )
 
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000060", 
-            qc_short_name = "nr_MS2", 
-            qc_name = "number of MS2 spectra", 
-            qc_description = "The number of MS2 events in the run.", 
-            value = num_ms2_spectra, 
-            value_shape = (1,), 
-            value_type = "uint64", 
-            unit_accession = "UO:0000189", 
+            f = out_h5,
+            qc_acc = "MS:4000060",
+            qc_short_name = "nr_MS2",
+            qc_name = "number of MS2 spectra",
+            qc_description = "The number of MS2 events in the run.",
+            value = num_ms2_spectra,
+            value_shape = (1,),
+            value_type = "uint64",
+            unit_accession = "UO:0000189",
             unit_name = "count unit"
         )
 
-        prec_unknown = 0.0 if 0 not in num_ms2_prec_charges else num_ms2_prec_charges[0] / num_ms2_spectra 
+        prec_unknown = 0.0 if 0 not in num_ms2_prec_charges else num_ms2_prec_charges[0] / num_ms2_spectra
         precz_more = 0
         for key in num_ms2_prec_charges.keys():
             if key > report_up_to_charge:
@@ -141,72 +232,62 @@ def collect(args: argparse.Namespace) -> None:
         ### for now, unknown charge states are reported as 0 (altough it is not mentioned in the ontology)
         prec_charge_list = [prec_unknown] + prec_charge_list + [precz_more / num_ms2_spectra]
         mzhdf5.add_table_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000063", 
-            qc_short_name = "MS2_prec_charge_fraction", 
-            qc_name = "MS2 known precursor charges fractions", 
-            qc_description = ("The fraction of MS/MS precursors of the corresponding charge. " 
+            f = out_h5,
+            qc_acc = "MS:4000063",
+            qc_short_name = "MS2_prec_charge_fraction",
+            qc_name = "MS2 known precursor charges fractions",
+            qc_description = ("The fraction of MS/MS precursors of the corresponding charge. "
                               "The fractions [0,1] are given in the 'Fraction' column, corresponding charges in the 'Charge state' column. "
                               "The highest charge state is to be interpreted as that charge state or higher."
-                              ), 
+                              ),
             column_names = ["MS:1000041 ! charge state", "UO:0000191 ! fraction"],
-            column_data = [[int(i) for i in range(0, report_up_to_charge + 2)], prec_charge_list], 
+            column_data = [[int(i) for i in range(0, report_up_to_charge + 2)], prec_charge_list],
             column_types = ["uint32", "float64"]
         )
 
         # Range of the retention time (first and last spectrum)
         RT_first = exp.getSpectrum(0).getRT()
-        RT_last = last_spectrum.getRT()
+        RT_last = last_rt
         RT_range = [RT_first, RT_last]
 
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000070", 
-            qc_short_name = "RT_range", 
-            qc_name = "retention time acquisition range", 
+            f = out_h5,
+            qc_acc = "MS:4000070",
+            qc_short_name = "RT_range",
+            qc_name = "retention time acquisition range",
             qc_description = "Upper and lower limit of retention time at which spectra are recorded.",
-            value = RT_range, 
-            value_shape = (2,), 
-            value_type = "float64", 
-            unit_accession = "UO:0000010", 
+            value = RT_range,
+            value_shape = (2,),
+            value_type = "float64",
+            unit_accession = "UO:0000010",
             unit_name = "second"
         )
-
-        # Get Base_peak_Intensity total_ion_current for all spectra ...
-        ms1_ms2_basepeaks = []
-        ms1_ms2_rt = []
-        ms1_ms2_tic = []
-        for spectrum in exp.getSpectra():
-            ms1_ms2_rt.append(spectrum.getRT())
-            peaks = spectrum.get_peaks()[1]
-            ms1_ms2_basepeaks.append(max(peaks) if len(peaks) != 0 else 0)
-            ms1_ms2_tic.append(sum(spectrum.get_peaks()[1]))
 
         base_peak_intensity_max = max(ms1_ms2_basepeaks)
         total_ion_current_max = max(ms1_ms2_tic)
 
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000202", 
-            qc_short_name = "base_peak_intensity_max", 
-            qc_name = "base peak intensity maximum", 
-            qc_description = "The maximum base peak intensity (MS:1000505) of all spectra in a single run.", 
-            value = base_peak_intensity_max, 
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "MS:1000043", 
+            f = out_h5,
+            qc_acc = "MS:4000202",
+            qc_short_name = "base_peak_intensity_max",
+            qc_name = "base peak intensity maximum",
+            qc_description = "The maximum base peak intensity (MS:1000505) of all spectra in a single run.",
+            value = base_peak_intensity_max,
+            value_shape = (1,),
+            value_type = "float64",
+            unit_accession = "MS:1000043",
             unit_name = "intensity unit"
         )
 
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, qc_acc = "MS:4000204", 
-            qc_short_name = "total_ion_current_max", 
-            qc_name = "total ion current maximum", 
-            qc_description = "The maximum total ion current (MS:1000285) of all spectra in a single run.", 
+            f = out_h5, qc_acc = "MS:4000204",
+            qc_short_name = "total_ion_current_max",
+            qc_name = "total ion current maximum",
+            qc_description = "The maximum total ion current (MS:1000285) of all spectra in a single run.",
             value = total_ion_current_max,
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "MS:1000043", 
+            value_shape = (1,),
+            value_type = "float64",
+            unit_accession = "MS:1000043",
             unit_name = "intensity unit"
         )
 
@@ -223,66 +304,36 @@ def collect(args: argparse.Namespace) -> None:
         total_ion_current_max_up_to_xm = max(ms1_ms2_tic[:i-1])
 
         mzhdf5.add_table_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000203", 
-            qc_short_name = "base_peak_intensity_maxima_per_time_range", 
-            qc_name = "base peak intensity maxima per time ranges", 
+            f = out_h5,
+            qc_acc = "MS:4000203",
+            qc_short_name = "base_peak_intensity_maxima_per_time_range",
+            qc_name = "base peak intensity maxima per time ranges",
             qc_description = (
                 "The maximum base peak intensity (MS:1000505) of all spectra in a single run in the given retention time ranges. "
                 "The time windows are specified by the 2nd column defining the start time in seconds and the 3rd column defining the duration in seconds. "
                 "To define a range from a starting time until the run's end, -1 may be used for the duration with 0 for the start."
-            ), 
+            ),
             column_names = ["MS:1000505 ! base peak intensity", "UO:0000010 ! second", "NCIT:C25330 ! Duration"],
-            column_data = [[base_peak_intensity_max], [0], [base_peak_tic_up_to*60]], 
+            column_data = [[base_peak_intensity_max], [0], [base_peak_tic_up_to*60]],
             column_types = ["float64", "float64", "float64"]
         )
 
         mzhdf5.add_table_to_hdf5(
             f = out_h5,
-            qc_acc = "MS:4000205", 
-            qc_short_name = "total_ion_current_maxima_per_time_ranges", 
-            qc_name = "total ion current maxima per time ranges", 
+            qc_acc = "MS:4000205",
+            qc_short_name = "total_ion_current_maxima_per_time_ranges",
+            qc_name = "total ion current maxima per time ranges",
             qc_description = (
                 "The maximum total ion current (MS:1000285) of all spectra in a single run in the given retention time ranges. "
                 "The time windows are specified by the 2nd column defining the start time in seconds and the 3rd column defining the duration in seconds. "
                 "To define a range from a starting time until the run's end, -1 may be used for the duration with 0 for the start."
-            ), 
+            ),
             column_names = ["MS:1000285 ! total ion current", "UO:0000010 ! second", "NCIT:C25330 ! Duration"],
-            column_data = [[total_ion_current_max], [0], [base_peak_tic_up_to*60]], 
+            column_data = [[total_ion_current_max], [0], [base_peak_tic_up_to*60]],
             column_types = ["float64", "float64", "float64"]
         )
 
-        # Get MS1 and MS2 TICs
-        ms1_tic = [] # This is the MS1-TIC-BLOB 
-        ms1_rt = []  # This is the MS1-RT-BLOB
-        ms1_map_rt = []  # This is the MS1-RT-BLOB (for heatmap purpose, data is transformed to 3 dimensions)
-        ms1_map_intens = []  # This is the MS1-RT-BLOB (for heatmap purpose, data is transformed to 3 dimensions)
-        ms1_map_mz = []  # This is the MS1-RT-BLOB (for heatmap purpose, data is transformed to 3 dimensions)
-        ms2_tic = [] # This is the MS2-TIC-BLOB
-        ms2_rt = []  # This is the MS2-RT-BLOB
-        ms2_mz = []  # This is the MS2-MZ-BLOB (needed or the Ion-Map)
-        BASE_PEAK_NOISE_THRESHOLD = base_peak_intensity_max*filter_threshold  
-        for spectrum in exp.getSpectra():
-            if spectrum.getMSLevel() == 1:
-                rt = spectrum.getRT()
-                ms1_rt.append(rt)
-                ms1_tic.append(sum(spectrum.get_peaks()[1]))
-
-                # Filter by basepeak intensity
-                mz, intens = spectrum.get_peaks()
-                for m, i in zip(mz, intens):
-                    if i >= BASE_PEAK_NOISE_THRESHOLD:
-                        ms1_map_mz.append(m)
-                        ms1_map_intens.append(i)
-                        ms1_map_rt.append(rt)
-            elif spectrum.getMSLevel() == 2:
-                ms2_rt.append(spectrum.getRT())
-                ms2_tic.append(sum(spectrum.get_peaks()[1]))
-                precs = spectrum.getPrecursors()
-                if len(precs) != 1:
-                    raise Exception("Unexpected number of precursors in a MS2-Spectrum")
-                else:
-                    ms2_mz.append(precs[0].getMZ())
+        BASE_PEAK_NOISE_THRESHOLD = base_peak_intensity_max*filter_threshold
 
         mzhdf5.add_table_to_hdf5(
             f=out_h5,
@@ -298,31 +349,70 @@ def collect(args: argparse.Namespace) -> None:
             column_types=["float64", "float64"],
         )
 
+        # MS1 ion map: instead of storing every individual MS1 peak above the
+        # noise threshold (unbounded, scales with run size and was the
+        # primary source of the out-of-memory failures on large runs), spread
+        # each peak's intensity across a small, fixed-size RT x m/z grid via
+        # pyopenms's BilinearInterpolation utility and store only the
+        # populated grid cells. Memory for this step is bounded by
+        # ms1_map_rt_bins * ms1_map_mz_bins regardless of file size.
+        ms1_map_rt = []
+        ms1_map_mz = []
+        ms1_map_intens = []
+
+        if num_ms1_spectra > 0 and mz_max > mz_min and RT_last > RT_first:
+            bilip = pyopenms.BilinearInterpolation()
+            grid = bilip.getData()
+            # NOTE: grid.resize(...) leaves the matrix uninitialized (garbage
+            # memory, not zeros); set_matrix with an explicit zero array is
+            # required so untouched cells read back as 0, not noise.
+            grid.set_matrix(np.zeros((ms1_map_rt_bins, ms1_map_mz_bins), dtype=np.float64))
+            bilip.setData(grid)
+            bilip.setMapping_0(0.0, RT_first, float(ms1_map_rt_bins - 1), RT_last)
+            bilip.setMapping_1(0.0, mz_min, float(ms1_map_mz_bins - 1), mz_max)
+
+            for i in ms1_indices:
+                spectrum = exp.getSpectrum(i)
+                rt = spectrum.getRT()
+                mz, intens = spectrum.get_peaks()
+                for m, val in zip(mz, intens):
+                    if val >= BASE_PEAK_NOISE_THRESHOLD:
+                        bilip.addValue(rt, m, val)
+
+            grid_np = bilip.getData().get_matrix()
+            rt_step = (RT_last - RT_first) / (ms1_map_rt_bins - 1)
+            mz_step = (mz_max - mz_min) / (ms1_map_mz_bins - 1)
+            row_idx, col_idx = np.nonzero(grid_np)
+            ms1_map_rt = (RT_first + row_idx * rt_step).tolist()
+            ms1_map_mz = (mz_min + col_idx * mz_step).tolist()
+            ms1_map_intens = grid_np[row_idx, col_idx].tolist()
+
         mzhdf5.add_table_to_hdf5(
-            f = out_h5, 
-            qc_acc = "LOCAL:rtMzIntensityMS1", 
-            qc_short_name = "MS1_map", 
-            qc_name = "MS1 ion map data", 
+            f = out_h5,
+            qc_acc = "LOCAL:rtMzIntensityMS1",
+            qc_short_name = "MS1_map",
+            qc_name = "MS1 ion map data",
             qc_description = (
-                "MS1 intensity, m/z and retention time. " 
-                "This table can be used to plot the MS1 ion map. "
-            ), 
+                "MS1 intensity, m/z and retention time, bilinearly interpolated onto a fixed-size "
+                "retention time x m/z grid (see -ms1_map_rt_bins/-ms1_map_mz_bins) and reported as one "
+                "row per populated grid cell. This table can be used to plot the MS1 ion map. "
+            ),
             column_names = ["retention_time", "mz", "intensity"],
-            column_data = [ms1_map_rt, ms1_map_mz, ms1_map_intens], 
+            column_data = [ms1_map_rt, ms1_map_mz, ms1_map_intens],
             column_types = ["float64", "float64", "float64"]
         )
 
         mzhdf5.add_table_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000212", 
-            qc_short_name = "MS2_TIC", 
-            qc_name = "MS2 total ion current", 
+            f = out_h5,
+            qc_acc = "MS:4000212",
+            qc_short_name = "MS2_TIC",
+            qc_name = "MS2 total ion current",
             qc_description = (
                 "Tabular representation of the total ion current (TIC) of the MS2 spectra. "
                 "It is a tabular representation of the total ion current detected in each of a series of mass spectra versus time (similar to the MS:1000235, but a mzQC valid table), using only the MS2 spectra."
-            ), 
+            ),
             column_names = ["MS:1000285 ! total ion current", "UO:0000010 ! second"],
-            column_data = [ms2_tic, ms2_rt], 
+            column_data = [ms2_tic, ms2_rt],
             column_types = ["float64", "float64"]
         )
 
@@ -426,61 +516,37 @@ def collect(args: argparse.Namespace) -> None:
         )
 
         # Get MS1-Freq-Max (in Hz)
-        np_ms1_rt = np.array(ms1_rt)
-        ms1_num_of_elements = []
-        for i in range(0, len(ms1_rt)):
-            ms1_num_of_elements.append(
-                sum( # Moving Window of 60 seconds, and sum up the number of elements within.
-                    np.logical_and(np_ms1_rt >= ms1_rt[i], np_ms1_rt <= (ms1_rt[i] + 60))
-                )
-            )
-        ms1_freq_max = max(ms1_num_of_elements) / 60
+        ms1_freq_max = _freq_max_hz(ms1_rt)
 
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000065", 
-            qc_short_name = "MS1_freq_max", 
-            qc_name = "fastest frequency for MS level 1 collection", 
-            qc_description = "Fastest frequency for MS level 1 collection.", 
-            value = ms1_freq_max, 
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "UO:0000106", 
+            f = out_h5,
+            qc_acc = "MS:4000065",
+            qc_short_name = "MS1_freq_max",
+            qc_name = "fastest frequency for MS level 1 collection",
+            qc_description = "Fastest frequency for MS level 1 collection.",
+            value = ms1_freq_max,
+            value_shape = (1,),
+            value_type = "float64",
+            unit_accession = "UO:0000106",
             unit_name = "hertz"
         )
 
         # Get MS2-Freq-Max (in Hz)
-        np_ms2_rt = np.array(ms2_rt)
-        ms2_num_of_elements = []
-        for i in range(0, len(ms2_rt)):
-            ms2_num_of_elements.append(
-                sum( # Moving Window of 60 seconds, and sum up the number of elements within.
-                    np.logical_and(np_ms2_rt >= ms2_rt[i], np_ms2_rt <= (ms2_rt[i] + 60))
-                )
-            )
-        ms2_freq_max = max(ms2_num_of_elements) / 60
+        ms2_freq_max = _freq_max_hz(ms2_rt)
         mzhdf5.add_entry_to_hdf5(
-            f = out_h5, 
-            qc_acc = "MS:4000066", 
-            qc_short_name = "MS2_freq_max", 
-            qc_name = "fastest frequency for MS level 2 collection", 
-            qc_description = "Fastest frequency for MS level 2 collection.", 
-            value = ms2_freq_max, 
-            value_shape = (1,), 
-            value_type = "float64", 
-            unit_accession = "UO:0000106", 
+            f = out_h5,
+            qc_acc = "MS:4000066",
+            qc_short_name = "MS2_freq_max",
+            qc_name = "fastest frequency for MS level 2 collection",
+            qc_description = "Fastest frequency for MS level 2 collection.",
+            value = ms2_freq_max,
+            value_shape = (1,),
+            value_type = "float64",
+            unit_accession = "UO:0000106",
             unit_name = "hertz"
         )
 
         # MS1-Density-Q1-4 MS2-Density-Q1-4
-        ms1_num_peaks = []
-        ms2_num_peaks = []
-        for spectrum in exp.getSpectra():
-            if spectrum.getMSLevel() == 1:
-                ms1_num_peaks.append(len(spectrum.get_peaks()[1]))
-            elif spectrum.getMSLevel() == 2:
-                ms2_num_peaks.append(len(spectrum.get_peaks()[1]))
-
         ms1_num_peaks = sorted(ms1_num_peaks)
         ms2_num_peaks = sorted(ms2_num_peaks)
 

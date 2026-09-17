@@ -53,3 +53,19 @@ macproqc-helpers combine-hdf5 --help
 python -m macproqc_helpers --help
 python -m macproqc_helpers combine-hdf5 -hdf_out_name output.hdf5 file1.hdf5 file2.hdf5
 ```
+
+## Testing
+
+Install the `dev` extras (includes `pytest`), then run the test suite from the module directory:
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+Run a single test file or test case:
+
+```bash
+pytest tests/test_collect_metrics_from_mzml.py
+pytest tests/test_collect_metrics_from_mzml.py::test_metrics_match_reference -v
+```
