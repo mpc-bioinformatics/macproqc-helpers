@@ -13,7 +13,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from macproqc_helpers.helpers.visualization_registry import TYPE_SINGLE
+from macproqc_helpers.helpers.visualization_registry import TYPE_SINGLE, _short_name
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,19 @@ def read_single_values(hdf5_paths: List[str], registry: Dict[str, dict]) -> pd.D
         data["filename"].append(fname)
         with h5py.File(path, "r") as hdf:
             for short, full_key in single_keys.items():
-                if full_key in hdf:
-                    data[short].append(hdf[full_key][0])
-                else:
+                if full_key not in hdf:
                     logger.warning("Metric '%s' missing in file '%s'.", short, fname)
                     data[short].append(np.nan)
+                    continue
+                dataset = hdf[full_key]
+                length = dataset.shape[0] if len(dataset.shape) > 0 else 1
+                if length == 0:
+                    logger.warning(
+                        "Metric '%s' in file '%s' is an empty array; treating as missing.", short, fname
+                    )
+                    data[short].append(np.nan)
+                else:
+                    data[short].append(dataset[0] if len(dataset.shape) > 0 else dataset[()])
 
     return pd.DataFrame(data)
 
@@ -72,7 +80,7 @@ def _dataframe_from_group(group: h5py.Group) -> pd.DataFrame:
         columns = [c for c in column_order.split("|") if c in df.columns]
         if columns:
             df = df[columns]
-    df.columns = df.columns.str.split(" ! ").str[-1]
+    df.columns = [_short_name(col) for col in df.columns]
     return df
 
 
@@ -111,7 +119,7 @@ def list_group_columns(hdf5_path: str, full_key: str) -> List[str]:
         group = hdf[full_key]
         column_order = group.attrs.get("column_order")
         full_cols = column_order.split("|") if column_order else list(group.keys())
-        return [c.split(" ! ")[-1].strip() for c in full_cols]
+        return [_short_name(c) for c in full_cols]
 
 
 def read_group_columns(
@@ -128,7 +136,7 @@ def read_group_columns(
             return result
         group = hdf[full_key]
         for col in group.keys():
-            short = col.split(" ! ")[-1].strip()
+            short = _short_name(col)
             if short in wanted:
                 result[short] = group[col][:]
     return result

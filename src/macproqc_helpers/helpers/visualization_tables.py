@@ -14,8 +14,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from macproqc_helpers.helpers.visualization_io import read_array_metric, read_dataframe_metric
-from macproqc_helpers.helpers.visualization_registry import TYPE_ARRAY, TYPE_DATAFRAME, TYPE_SINGLE
+from macproqc_helpers.helpers.visualization_registry import TYPE_ARRAY, TYPE_DATAFRAME
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +50,18 @@ def _build_wide_from_arrays(
     return df_tmp
 
 
+def relabel_category_extremes(
+    df: pd.DataFrame, category_col: str, replace_zero_with: Optional[str] = None
+) -> pd.DataFrame:
+    """Return a copy of `df` with `category_col`'s maximum value relabeled
+    to 'more' (and, if given, 0 relabeled to `replace_zero_with`)."""
+    df = df.copy()
+    df[category_col] = df[category_col].replace(df[category_col].max(), "more")
+    if replace_zero_with is not None:
+        df[category_col] = df[category_col].replace(0, replace_zero_with)
+    return df
+
+
 def _build_wide_from_dataframes(
     metric: str, hdf5_file_names: List[str], dataframes: Dict[str, pd.DataFrame]
 ) -> pd.DataFrame:
@@ -60,8 +71,13 @@ def _build_wide_from_dataframes(
     for file, df in dataframes.items():
         if df is None or df.empty:
             continue
-        pivoted = df.pivot_table(columns=df.columns[0], values=df.columns[1], aggfunc="first")
-        pivoted_by_file[file] = pivoted.iloc[0]
+        try:
+            pivoted = df.pivot_table(columns=df.columns[0], values=df.columns[1], aggfunc="first")
+            pivoted_by_file[file] = pivoted.iloc[0]
+        except Exception as exc:
+            logger.warning(
+                "Could not pivot metric '%s' data for file '%s' (%s); treating as missing.", metric, file, exc
+            )
 
     all_columns = sorted(
         {col for series in pivoted_by_file.values() for col in series.index}, key=_sort_key
@@ -94,169 +110,147 @@ def _build_spike_in_table(
     falls back to the peptide's own "proforma peptidoform sequence". Files
     missing the metric get a row of NaN for every column seen across all
     files."""
-    per_file_rows: Dict[str, pd.DataFrame] = {}
+    per_file_rows: Dict[str, Dict[str, Any]] = {}
 
     for file, spike_data in dataframes.items():
         if spike_data is None or spike_data.empty:
             continue
-        spike_data = spike_data.copy()
+        try:
+            spike_data = spike_data.copy()
 
-        if RT_unit == "min":
-            spike_data["retention time"] = spike_data["retention time"] / 60
-            spike_data["predicted retention time"] = spike_data["predicted retention time"] / 60
+            if RT_unit == "min":
+                spike_data["retention time"] = spike_data["retention time"] / 60
+                spike_data["predicted retention time"] = spike_data["predicted retention time"] / 60
 
-        spike_data["Delta_to_expected_RT"] = (
-            spike_data["retention time"] - spike_data["predicted retention time"]
-        )
-        # utf8 decoding of the proforma peptidoform sequence
-        spike_data["proforma peptidoform sequence"] = spike_data["proforma peptidoform sequence"].apply(
-            lambda x: x.decode("utf8") if isinstance(x, bytes) else x
-        )
+            spike_data["Delta_to_expected_RT"] = (
+                spike_data["retention time"] - spike_data["predicted retention time"]
+            )
+            # utf8 decoding of the proforma peptidoform sequence
+            spike_data["proforma peptidoform sequence"] = spike_data["proforma peptidoform sequence"].apply(
+                lambda x: x.decode("utf8") if isinstance(x, bytes) else x
+            )
 
-        if spike_ins_table is not None:
-            spike_ins_info = pd.read_csv(spike_ins_table, sep=",")
-            spike_in_list = spike_ins_info["name"].astype(str).tolist()
-        else:
-            spike_in_list = spike_data["proforma peptidoform sequence"].astype(str).tolist()
+            if spike_ins_table is not None:
+                spike_ins_info = pd.read_csv(spike_ins_table, sep=",")
+                spike_in_list = spike_ins_info["name"].astype(str).tolist()
+            else:
+                spike_in_list = spike_data["proforma peptidoform sequence"].astype(str).tolist()
 
-        value_columns = spike_data.columns.to_list()
+            value_columns = spike_data.columns.to_list()
 
-        row_frame = pd.DataFrame()
-        for index, _ in spike_data.iterrows():
-            column_names = [spike_in_list[index] + "_" + col for col in value_columns]
-            single_spikein = pd.DataFrame(columns=column_names)
-            single_spikein.loc[0] = spike_data.loc[index, value_columns].values
-            row_frame = pd.concat([row_frame, single_spikein], axis=1)
+            row_values: Dict[str, Any] = {}
+            for idx in range(len(spike_data)):
+                row = spike_data.iloc[idx]
+                for col in value_columns:
+                    row_values[f"{spike_in_list[idx]}_{col}"] = row[col]
 
-        per_file_rows[file] = row_frame
+            per_file_rows[file] = row_values
+        except Exception as exc:
+            logger.warning(
+                "Could not assemble metric 'spike_in_metrics' data for file '%s' (%s); treating as missing.",
+                file, exc,
+            )
 
     if not per_file_rows:
         raise ValueError("metric 'spike_in_metrics' not present in any file")
 
     all_columns: List[str] = []
-    for row_frame in per_file_rows.values():
-        for col in row_frame.columns:
+    for row_values in per_file_rows.values():
+        for col in row_values.keys():
             if col not in all_columns:
                 all_columns.append(col)
 
     rows = []
     for file in hdf5_file_names:
-        row_frame = per_file_rows.get(file)
-        if row_frame is None:
+        row_values = per_file_rows.get(file)
+        if row_values is None:
             logger.warning("Metric 'spike_in_metrics' missing in file '%s'.", file)
             rows.append({col: np.nan for col in all_columns})
         else:
-            rows.append({col: row_frame.iloc[0].get(col, np.nan) for col in all_columns})
+            rows.append({col: row_values.get(col, np.nan) for col in all_columns})
 
     return pd.DataFrame(rows, columns=all_columns)
 
 
-def _assemble_metric_columns(
+def build_filename_column(hdf5_file_names: List[str]) -> pd.DataFrame:
+    """Build the 'filename' column - no I/O, just echoes `hdf5_file_names` back."""
+    return pd.DataFrame({"filename": hdf5_file_names})
+
+
+def build_single_value_column(metric: str, single_values: pd.DataFrame) -> pd.DataFrame:
+    """Build the column for one `TYPE_SINGLE` metric directly from the
+    already-in-memory `single_values` DataFrame - no I/O needed, since single
+    values are all read once up front (see `visualization_io.read_single_values`).
+
+    `startTime` gets special handling: each file's value is converted to a
+    proper timestamp independently, and a missing/invalid value blanks only
+    that file's row."""
+    if metric == "startTime":
+        converted = []
+        for t in single_values["startTime"]:
+            try:
+                converted.append(datetime.fromtimestamp(t, timezone.utc))
+            except Exception:
+                converted.append(pd.NaT)
+        s = pd.to_datetime(pd.Series(converted)).dt.tz_localize(None)
+        return pd.DataFrame({"startTime": s.values})
+    return pd.DataFrame({metric: single_values[metric].values})
+
+
+def _build_metric_columns(
     metric: str,
-    hdf5_paths: List[str],
-    registry: Dict[str, dict],
-    single_values: pd.DataFrame,
+    metric_type: str,
+    data: Any,
     hdf5_file_names: List[str],
     RT_unit: str,
     spike_ins_table: Optional[str],
 ) -> pd.DataFrame:
-    """Build the column(s) for one requested metric, one row per file (in
-    `hdf5_file_names` order), dispatching on the metric's registry type:
-    - "filename" is special-cased (just echoes `hdf5_file_names` back).
-    - `TYPE_SINGLE` metrics are pulled directly from the already-read
-      `single_values` DataFrame (with `startTime` converted to a proper
-      timestamp column).
-    - `TYPE_ARRAY` metrics are read lazily via `read_array_metric` and
-      pivoted wide via `_build_wide_from_arrays`.
-    - `TYPE_DATAFRAME` metrics are read lazily via `read_dataframe_metric`,
-      then handled by one of three special cases (the two
-      "*_maxima_per_time_range(s)" metrics, which just take the first row
-      of one column; "spike_in_metrics", via `_build_spike_in_table`) or,
-      for any other dataframe metric, the generic 2-column pivot in
-      `_build_wide_from_dataframes`.
-    Raises if the metric is missing from the registry, not present in any
-    file, or has an unrecognized registry type - the caller
-    (`assemble_result_table`) catches these and fills NaN instead."""
-    if metric == "filename":
-        return pd.DataFrame({"filename": hdf5_file_names})
+    """Build the column(s) for one already-fetched group ('array' or
+    'dataframe' type) metric, one row per file (in `hdf5_file_names` order).
 
-    entry = registry.get(metric)
-    if entry is None:
-        raise KeyError(f"metric '{metric}' not found in the metric registry")
+    `data` is the corresponding array_values/dataframes dict, already read
+    from disk by the caller (see `visualization.py`'s `_process_group_metrics`,
+    which reads each metric from disk once and reuses that one `data` for
+    every consumer - the summary table, the PCA feature tables, and/or a
+    standalone figure - that needs it).
 
-    metric_type = entry["type"]
+    `filename` and `TYPE_SINGLE` metrics are NOT handled here - see
+    `build_filename_column`/`build_single_value_column`, which need no data
+    fetch at all.
 
-    if metric_type == TYPE_SINGLE:
-        if metric == "startTime":
-            converted = [
-                datetime.fromtimestamp(t, timezone.utc) for t in single_values["startTime"]
-            ]
-            s = pd.to_datetime(pd.Series(converted)).dt.tz_localize(None)
-            return pd.DataFrame({"startTime": s.values})
-        return pd.DataFrame({metric: single_values[metric].values})
-
+    Raises if `data` is empty or the metric type is unrecognized - the
+    caller catches these and fills NaN instead."""
     if metric_type == TYPE_ARRAY:
-        array_values = read_array_metric(hdf5_paths, entry["example_full_key"])
-        if not array_values:
+        if not data:
             raise ValueError(f"metric '{metric}' not present in any file")
-        return _build_wide_from_arrays(metric, hdf5_file_names, array_values, RT_unit)
+        return _build_wide_from_arrays(metric, hdf5_file_names, data, RT_unit)
 
     if metric_type == TYPE_DATAFRAME:
-        dataframes = read_dataframe_metric(hdf5_paths, entry["example_full_key"])
-        if not dataframes:
+        if not data:
             raise ValueError(f"metric '{metric}' not present in any file")
 
         if metric in ("base_peak_intensity_maxima_per_time_range", "total_ion_current_maxima_per_time_ranges"):
             col = "base peak intensity" if metric == "base_peak_intensity_maxima_per_time_range" else "total ion current"
-            values = [
-                dataframes[file][col].iloc[0]
-                if file in dataframes and col in dataframes[file].columns
-                else np.nan
-                for file in hdf5_file_names
-            ]
+            values = []
+            for file in hdf5_file_names:
+                if file not in data or col not in data[file].columns:
+                    values.append(np.nan)
+                    continue
+                try:
+                    values.append(data[file][col].iloc[0])
+                except Exception as exc:
+                    logger.warning(
+                        "Could not read '%s' from metric '%s' for file '%s' (%s).", col, metric, file, exc
+                    )
+                    values.append(np.nan)
             return pd.DataFrame({metric: values})
 
         if metric == "spike_in_metrics":
-            return _build_spike_in_table(hdf5_file_names, dataframes, RT_unit, spike_ins_table)
+            return _build_spike_in_table(hdf5_file_names, data, RT_unit, spike_ins_table)
 
-        return _build_wide_from_dataframes(metric, hdf5_file_names, dataframes)
+        return _build_wide_from_dataframes(metric, hdf5_file_names, data)
 
     raise ValueError(f"unknown metric type '{metric_type}' for metric '{metric}'")
-
-
-def assemble_result_table(
-    metric_list: List[str],
-    hdf5_paths: List[str],
-    registry: Dict[str, dict],
-    single_values: pd.DataFrame,
-    RT_unit: str = "sec",
-    spike_ins_table: Optional[str] = None,
-) -> pd.DataFrame:
-    """
-    Assemble a result table with one row per hdf5 file and one (or more)
-    column(s) per requested metric.
-
-    Data for each metric is fetched lazily (only the metrics in
-    `metric_list` are read from disk, one at a time) via the metric
-    registry. If a metric is missing from the registry entirely, or fails to
-    be assembled for any reason, the resulting column(s) are filled with NaN
-    and a warning is logged - this table is always fully built, even if some
-    metrics are missing or malformed in the provided hdf5 files.
-    """
-    hdf5_file_names = single_values["filename"].tolist()
-    df_table = pd.DataFrame(index=range(len(hdf5_file_names)))
-
-    for metric in metric_list:
-        try:
-            df_metric = _assemble_metric_columns(
-                metric, hdf5_paths, registry, single_values, hdf5_file_names, RT_unit, spike_ins_table
-            )
-        except Exception as exc:
-            logger.warning("Could not assemble metric '%s' (%s); filling with NaN.", metric, exc)
-            df_metric = pd.DataFrame({metric: [np.nan] * len(hdf5_file_names)})
-        df_table = pd.concat([df_table.reset_index(drop=True), df_metric.reset_index(drop=True)], axis=1)
-
-    return df_table
 
 
 def _build_hdf5_feature_table(hdf5_paths: List[str]) -> pd.DataFrame:

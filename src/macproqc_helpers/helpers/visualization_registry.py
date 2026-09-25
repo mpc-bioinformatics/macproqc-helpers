@@ -116,11 +116,13 @@ def build_metric_registry(hdf5_paths: List[str]) -> Dict[str, dict]:
     every metric key, whether it is a single value, an array or a dataframe
     (HDF5 group).
 
-    A metric is classified as "array" if it has length > 1 in ANY of the
-    provided files, and "single" only if it consistently has length 1 in
-    every file that contains it. Groups are always "dataframe". This avoids
-    misclassifying a metric as "single" just because one specific file
-    happens to only have a single entry (e.g. a raw file with only one PSM).
+    A metric is classified as "array" if it has length != 1 (including 0) in
+    ANY of the provided files, and "single" only if it consistently has
+    length 1 in every file that contains it. Groups are always "dataframe".
+    This avoids misclassifying a metric as "single" just because one
+    specific file happens to only have a single entry (e.g. a raw file with
+    only one PSM), or because it happens to be empty in every file (e.g. an
+    error-quartile array for a file with 0 relevant PSMs).
 
     Returns
     -------
@@ -130,7 +132,7 @@ def build_metric_registry(hdf5_paths: List[str]) -> Dict[str, dict]:
         `hdf5_paths` are included. PCA/summary-table flags are not set here,
         see `seed_default_flags`.
     """
-    max_len: Dict[str, int] = {}
+    non_single: Dict[str, bool] = {}
     example_full_key: Dict[str, str] = {}
     is_group: Dict[str, bool] = {}
 
@@ -145,13 +147,14 @@ def build_metric_registry(hdf5_paths: List[str]) -> Dict[str, dict]:
                 elif isinstance(item, h5py.Dataset):
                     is_group.setdefault(short, False)
                     length = item.shape[0] if len(item.shape) > 0 else 1
-                    max_len[short] = max(max_len.get(short, 0), length)
+                    if length != 1:
+                        non_single[short] = True
 
     registry: Dict[str, dict] = {}
     for short in sorted(example_full_key.keys()):
         if is_group.get(short, False):
             metric_type = TYPE_DATAFRAME
-        elif max_len.get(short, 1) > 1:
+        elif non_single.get(short, False):
             metric_type = TYPE_ARRAY
         else:
             metric_type = TYPE_SINGLE
