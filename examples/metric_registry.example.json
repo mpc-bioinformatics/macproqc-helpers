@@ -1,0 +1,330 @@
+{
+  "Extracted_Headers": {
+    "dynamic_columns": true,
+    "example_full_key": "THERMO ! Extracted_Headers",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "Extracted_Log_Headers": {
+    "dynamic_columns": true,
+    "example_full_key": "THERMO_LOG ! Extracted_Log_Headers",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "MS1_TIC": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000211 ! MS1_TIC",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "MS1_TIC_change_quantiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000186 ! MS1_TIC_change_quantiles",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "MS1_TIC_quantiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000187 ! MS1_TIC_quantiles",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "MS1_density_quantiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000061 ! MS1_density_quantiles",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "MS1_freq_max": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000065 ! MS1_freq_max",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "MS1_map": {
+    "dynamic_columns": false,
+    "example_full_key": "LOCAL:rtMzIntensityMS1 ! MS1_map",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "MS2_TIC": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000212 ! MS2_TIC",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "MS2_density_quantiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000062 ! MS2_density_quantiles",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "MS2_freq_max": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000066 ! MS2_freq_max",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "MS2_prec_charge_fraction": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000063 ! MS2_prec_charge_fraction",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "dataframe"
+  },
+  "PSM_charge_fractions": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000209 ! PSM_charge_fractions",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "PSM_missed_cleavages_fractions": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000215 ! PSM_missed_cleavages_fractions",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "RT_MS1_quantiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000184 ! RT_MS1_quantiles",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "RT_MS2_quantiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000185 ! RT_MS2_quantiles",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "RT_TIC_quantiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000183 ! RT_TIC_quantiles",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "RT_range": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000070 ! RT_range",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "array"
+  },
+  "accumulated_MS1_TIC": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000029 ! accumulated_MS1_TIC",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "accumulated_MS2_TIC": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000030 ! accumulated_MS2_TIC",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "base_peak_intensity_max": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000202 ! base_peak_intensity_max",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "base_peak_intensity_maxima_per_time_range": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000203 ! base_peak_intensity_maxima_per_time_range",
+    "in_summary_table": true,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "features_charges": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000207 ! features_charges",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "filename": {
+    "dynamic_columns": false,
+    "example_full_key": "",
+    "in_summary_table": true,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "filtered_psms_ppm_error_mean": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000178 ! filtered_psms_ppm_error_mean",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "filtered_psms_ppm_error_quartiles": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000206 ! filtered_psms_ppm_error_quartiles",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "array"
+  },
+  "filtered_psms_ppm_error_sigma": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000179 ! filtered_psms_ppm_error_sigma",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "ident_features_charge": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000208 ! ident_features_charge",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "nr_MS1": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000059 ! nr_MS1",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "nr_MS2": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000060 ! nr_MS2",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "nr_PSMs": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:1003251 ! nr_PSMs",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "nr_accessions": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000214 ! nr_accessions",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "nr_features": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000102 ! nr_features",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "nr_ident_features": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000103 ! nr_ident_features",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "nr_peptides": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:1003250 ! nr_peptides",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "nr_protein_groups": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:1003327 ! nr_protein_groups",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "pump_pressure": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000210 ! pump_pressure",
+    "in_summary_table": false,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "spike_in_metrics": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000213 ! spike_in_metrics",
+    "in_summary_table": true,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  },
+  "startTime": {
+    "dynamic_columns": false,
+    "example_full_key": "LOCAL:startTime ! startTime",
+    "in_summary_table": true,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "single"
+  },
+  "total_ion_current_max": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000204 ! total_ion_current_max",
+    "in_summary_table": true,
+    "pca_all": true,
+    "pca_raw": true,
+    "type": "single"
+  },
+  "total_ion_current_maxima_per_time_ranges": {
+    "dynamic_columns": false,
+    "example_full_key": "MS:4000205 ! total_ion_current_maxima_per_time_ranges",
+    "in_summary_table": true,
+    "pca_all": false,
+    "pca_raw": false,
+    "type": "dataframe"
+  }
+}
