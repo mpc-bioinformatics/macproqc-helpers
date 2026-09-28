@@ -55,8 +55,8 @@ jobs:
                   init-shell: bash
                   cache-environment: true
 
-            - name: Install ty
-              run: pip install ty
+            - name: Install dev dependencies
+              run: pip install -e '.[dev]'
               shell: bash -el {0}
 
             - name: Type check
