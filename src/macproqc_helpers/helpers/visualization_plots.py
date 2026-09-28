@@ -316,13 +316,12 @@ def plot_ms1_maps(
         for path in hdf5_paths:
             fname = Path(path).stem
             with _skip_file_on_error("fig13", fname):
+                # MS1_map is a bilinearly-interpolated RT x m/z grid (one row per
+                # populated grid cell, bounded by -ms1_map_rt_bins/-ms1_map_mz_bins)
                 df_map = read_dataframe_metric_single_file(path, entry["example_full_key"])
                 if df_map is None:
                     continue
 
-                if len(df_map) > 1_000_000:
-                    samples = int(len(df_map) / 1_000_000)
-                    df_map = df_map.loc[range(0, len(df_map), samples), :]
                 df_map = df_map.copy()
                 df_map["log_intensity"] = np.log10(df_map["intensity"])
 
