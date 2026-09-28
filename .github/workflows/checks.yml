@@ -1,0 +1,64 @@
+name: Checks
+
+on:
+    pull_request:
+    merge_group:
+    push:
+        branches:
+            - dev
+            - main
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    format-and-lint:
+        name: Format & lint (ruff)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up micromamba environment
+              uses: mamba-org/setup-micromamba@v3
+              with:
+                  environment-file: environment.yml
+                  init-shell: bash
+                  cache-environment: true
+
+            - name: Install ruff
+              run: pip install ruff
+              shell: bash -el {0}
+
+            - name: Check formatting
+              run: ruff format --check --diff src tests
+              shell: bash -el {0}
+
+            - name: Lint
+              run: ruff check --output-format=github src tests
+              shell: bash -el {0}
+
+    typecheck:
+        name: Type check (ty)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up micromamba environment
+              uses: mamba-org/setup-micromamba@v3
+              with:
+                  environment-file: environment.yml
+                  init-shell: bash
+                  cache-environment: true
+
+            - name: Install ty
+              run: pip install ty
+              shell: bash -el {0}
+
+            - name: Type check
+              run: ty check --output-format github
+              shell: bash -el {0}
