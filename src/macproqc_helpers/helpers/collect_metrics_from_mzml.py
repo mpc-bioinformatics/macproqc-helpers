@@ -31,10 +31,8 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
 def _open_experiment(path: str):
     """Open an mzML file for indexed, on-demand per-spectrum access.
 
-    OnDiscMSExperiment reads one spectrum at a time from disk instead of
-    loading every spectrum's full peak data into memory up front, which is
-    what made this step run out of memory on large runs. It requires the
-    mzML to carry a valid <indexList> (true for ThermoRawFileParser output);
+    OnDiscMSExperiment reads one spectrum at a time from disk to avoid out of memory errors.
+    It requires the mzML to carry a valid <indexList> (true for ThermoRawFileParser output);
     if that's not the case (e.g. some tdf2mzml-produced Bruker mzML), fall
     back to the old full in-memory load rather than failing outright.
     """
@@ -57,9 +55,7 @@ def _freq_max_hz(rt_list, window_seconds: float = 60.0) -> float:
     falls within any `window_seconds`-wide window, divided by that window.
 
     Equivalent to, for every i, counting entries with rt[i] <= rt <=
-    rt[i]+window and taking the max - but done in O(n log n) via
-    searchsorted on a sorted copy, instead of the O(n^2) nested loop this
-    replaces (which also allocated a full boolean mask per entry).
+    rt[i]+window and taking the max.
     """
     if not rt_list:
         return 0.0
@@ -349,13 +345,9 @@ def collect(args: argparse.Namespace) -> None:
             column_types=["float64", "float64"],
         )
 
-        # MS1 ion map: instead of storing every individual MS1 peak above the
-        # noise threshold (unbounded, scales with run size and was the
-        # primary source of the out-of-memory failures on large runs), spread
-        # each peak's intensity across a small, fixed-size RT x m/z grid via
-        # pyopenms's BilinearInterpolation utility and store only the
-        # populated grid cells. Memory for this step is bounded by
-        # ms1_map_rt_bins * ms1_map_mz_bins regardless of file size.
+        # MS1 ion map: spread each peak's intensity across a small,
+        # fixed-size RT x m/z grid via pyopenms's BilinearInterpolation 
+        # utility and store only the populated grid cells
         ms1_map_rt = []
         ms1_map_mz = []
         ms1_map_intens = []
