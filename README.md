@@ -69,3 +69,15 @@ Run a single test file or test case:
 pytest tests/test_collect_metrics_from_mzml.py
 pytest tests/test_collect_metrics_from_mzml.py::test_metrics_match_reference -v
 ```
+
+## Development
+
+Formatting, linting and type checking use [ruff](https://docs.astral.sh/ruff/) and [ty](https://docs.astral.sh/ty/) (installed via the `dev` extras, configured in `pyproject.toml`). These also run in CI on every pull request and in the merge queue (`.github/workflows/checks.yml`).
+
+```bash
+pip install -e ".[dev]"
+
+ruff format src tests    # auto-format
+ruff check src tests     # lint
+ty check                 # type check
+```
