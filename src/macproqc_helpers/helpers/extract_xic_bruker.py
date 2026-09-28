@@ -5,7 +5,6 @@ import sys
 from alphatims.bruker import TimsTOF
 
 
-
 def argparse_setup(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         "extract-xic-bruker",
@@ -15,14 +14,14 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument("-d_folder", help="Bruker .d-Folder of raw spectra")
     parser.add_argument("-in_json", help="In json query file (similar as to TRFP)")
     parser.add_argument("-out_json", help="Output results file (similar as to TRFP)")
-    
+
     parser.set_defaults(func=extract)
 
 
 def extract(args: argparse.Namespace) -> None:
 
     # Load queries
-    with open(args.in_json, "r") as injson:
+    with open(args.in_json) as injson:
         queries = json.load(injson)
 
     # Open raw spectra
@@ -44,18 +43,26 @@ def extract(args: argparse.Namespace) -> None:
         min_mz = entry["mz"] - delta
         max_mz = entry["mz"] + delta
 
-        rt_start = entry["rt_start"]*60
-        rt_end = entry["rt_end"]*60
+        rt_start = entry["rt_start"] * 60
+        rt_end = entry["rt_end"] * 60
 
         # Indexing as follows: raw_data[RT_in_Secs, Scan_Index, Prec_Index, MZ, Intensity]
         result = dict(
-            Meta=dict(MzStart=min_mz, MzEnd=max_mz, RtStart=entry["rt_start"], RtEnd=entry["rt_end"], Comment=entry["comment"]),
-            RetentionTimes=list(raw_data[rt_start:rt_end, :, :, min_mz:max_mz, :]["rt_values"]/60),
-            Intensities=list(raw_data[rt_start:rt_end, :, :, min_mz:max_mz, :]["intensity_values"])
+            Meta=dict(
+                MzStart=min_mz,
+                MzEnd=max_mz,
+                RtStart=entry["rt_start"],
+                RtEnd=entry["rt_end"],
+                Comment=entry["comment"],
+            ),
+            RetentionTimes=list(
+                raw_data[rt_start:rt_end, :, :, min_mz:max_mz, :]["rt_values"] / 60
+            ),
+            Intensities=list(raw_data[rt_start:rt_end, :, :, min_mz:max_mz, :]["intensity_values"]),
         )
 
         result_json["Content"].append(result)
 
     # Write to file
-    with open(args.out_json, "w") as ojs: 
+    with open(args.out_json, "w") as ojs:
         json.dump(result_json, ojs, indent=2)

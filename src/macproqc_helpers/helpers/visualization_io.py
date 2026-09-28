@@ -26,7 +26,9 @@ def read_single_values(hdf5_paths: List[str], registry: Dict[str, dict]) -> pd.D
     single_keys = {
         short: entry["example_full_key"]
         for short, entry in registry.items()
-        if short != "filename" and entry.get("type") == TYPE_SINGLE and entry.get("example_full_key")
+        if short != "filename"
+        and entry.get("type") == TYPE_SINGLE
+        and entry.get("example_full_key")
     }
 
     data: Dict[str, List[Any]] = {"filename": []}
@@ -46,7 +48,9 @@ def read_single_values(hdf5_paths: List[str], registry: Dict[str, dict]) -> pd.D
                 length = dataset.shape[0] if len(dataset.shape) > 0 else 1
                 if length == 0:
                     logger.warning(
-                        "Metric '%s' in file '%s' is an empty array; treating as missing.", short, fname
+                        "Metric '%s' in file '%s' is an empty array; treating as missing.",
+                        short,
+                        fname,
                     )
                     data[short].append(np.nan)
                 else:

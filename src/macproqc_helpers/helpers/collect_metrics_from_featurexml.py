@@ -1,12 +1,11 @@
-
-
-import os
 import argparse
 import base64
+import os
 import zipfile
-import pyopenms
-import h5py
 from collections import defaultdict
+
+import h5py
+import pyopenms
 
 import macproqc_helpers.utils.hdf5 as mzhdf5
 
@@ -19,7 +18,12 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     )
     parser.add_argument("-featurexml", help="FeatureXML with already annotated identifications")
     parser.add_argument("-out_hdf5", help="The Output statistics HDF5")
-    parser.add_argument("-report_up_to_charge", type=int, default=5, help="Upper limit of range to be reported in a csv table for the charge")
+    parser.add_argument(
+        "-report_up_to_charge",
+        type=int,
+        default=5,
+        help="Upper limit of range to be reported in a csv table for the charge",
+    )
 
     parser.set_defaults(func=collect_metrics_from_featurexml)
 
@@ -33,7 +37,7 @@ def collect_metrics_from_featurexml(args: argparse.Namespace) -> None:
     total_num_features = 0
     num_features_charge = defaultdict(lambda: 0)
     total_num_ident_features = 0
-    num_ident_features_charge = defaultdict(lambda: 0) # Identified by charge state
+    num_ident_features_charge = defaultdict(lambda: 0)  # Identified by charge state
     for f in features:
         # Get data to be able to count
         charge = f.getCharge()
@@ -50,9 +54,14 @@ def collect_metrics_from_featurexml(args: argparse.Namespace) -> None:
             total_num_ident_features += 1
             num_ident_features_charge[charge] += 1
 
-    zipfile.ZipFile("featurexml.zip", mode="w", compresslevel=9).write(args.featurexml, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9, arcname=args.featurexml.split(os.sep)[-1])
+    zipfile.ZipFile("featurexml.zip", mode="w", compresslevel=9).write(
+        args.featurexml,
+        compress_type=zipfile.ZIP_DEFLATED,
+        compresslevel=9,
+        arcname=args.featurexml.split(os.sep)[-1],
+    )
     with open("featurexml.zip", "rb") as fb:
-        feature_str_bs64 = base64.b64encode(fb.read())
+        _feature_str_bs64 = base64.b64encode(fb.read())
 
     with h5py.File(args.out_hdf5, "w") as out_h5:
         mzhdf5.add_entry_to_hdf5(
@@ -97,8 +106,7 @@ def collect_metrics_from_featurexml(args: argparse.Namespace) -> None:
                 charges_features_more += num_features_charge[key]
 
         charges_features_frac_list = [
-            num_features_charge[i] / total_num_features
-            for i in range(1, report_up_to_charge + 1)
+            num_features_charge[i] / total_num_features for i in range(1, report_up_to_charge + 1)
         ] + [charges_features_more / total_num_features]
 
         mzhdf5.add_table_to_hdf5(

@@ -76,7 +76,10 @@ def _build_wide_from_dataframes(
             pivoted_by_file[file] = pivoted.iloc[0]
         except Exception as exc:
             logger.warning(
-                "Could not pivot metric '%s' data for file '%s' (%s); treating as missing.", metric, file, exc
+                "Could not pivot metric '%s' data for file '%s' (%s); treating as missing.",
+                metric,
+                file,
+                exc,
             )
 
     all_columns = sorted(
@@ -126,9 +129,9 @@ def _build_spike_in_table(
                 spike_data["retention time"] - spike_data["predicted retention time"]
             )
             # utf8 decoding of the proforma peptidoform sequence
-            spike_data["proforma peptidoform sequence"] = spike_data["proforma peptidoform sequence"].apply(
-                lambda x: x.decode("utf8") if isinstance(x, bytes) else x
-            )
+            spike_data["proforma peptidoform sequence"] = spike_data[
+                "proforma peptidoform sequence"
+            ].apply(lambda x: x.decode("utf8") if isinstance(x, bytes) else x)
 
             if spike_ins_table is not None:
                 spike_ins_info = pd.read_csv(spike_ins_table, sep=",")
@@ -148,7 +151,8 @@ def _build_spike_in_table(
         except Exception as exc:
             logger.warning(
                 "Could not assemble metric 'spike_in_metrics' data for file '%s' (%s); treating as missing.",
-                file, exc,
+                file,
+                exc,
             )
 
     if not per_file_rows:
@@ -162,12 +166,12 @@ def _build_spike_in_table(
 
     rows = []
     for file in hdf5_file_names:
-        row_values = per_file_rows.get(file)
-        if row_values is None:
+        file_row_values = per_file_rows.get(file)
+        if file_row_values is None:
             logger.warning("Metric 'spike_in_metrics' missing in file '%s'.", file)
             rows.append({col: np.nan for col in all_columns})
         else:
-            rows.append({col: row_values.get(col, np.nan) for col in all_columns})
+            rows.append({col: file_row_values.get(col, np.nan) for col in all_columns})
 
     return pd.DataFrame(rows, columns=all_columns)
 
@@ -229,8 +233,15 @@ def _build_metric_columns(
         if not data:
             raise ValueError(f"metric '{metric}' not present in any file")
 
-        if metric in ("base_peak_intensity_maxima_per_time_range", "total_ion_current_maxima_per_time_ranges"):
-            col = "base peak intensity" if metric == "base_peak_intensity_maxima_per_time_range" else "total ion current"
+        if metric in (
+            "base_peak_intensity_maxima_per_time_range",
+            "total_ion_current_maxima_per_time_ranges",
+        ):
+            col = (
+                "base peak intensity"
+                if metric == "base_peak_intensity_maxima_per_time_range"
+                else "total ion current"
+            )
             values = []
             for file in hdf5_file_names:
                 if file not in data or col not in data[file].columns:
@@ -240,7 +251,11 @@ def _build_metric_columns(
                     values.append(data[file][col].iloc[0])
                 except Exception as exc:
                     logger.warning(
-                        "Could not read '%s' from metric '%s' for file '%s' (%s).", col, metric, file, exc
+                        "Could not read '%s' from metric '%s' for file '%s' (%s).",
+                        col,
+                        metric,
+                        file,
+                        exc,
                     )
                     values.append(np.nan)
             return pd.DataFrame({metric: values})
@@ -277,6 +292,14 @@ def _build_hdf5_feature_table(hdf5_paths: List[str]) -> pd.DataFrame:
                     }
                 )
     df = pd.DataFrame(
-        rows, columns=["key", "qc_description", "qc_name", "qc_short_name", "unit_accession", "unit_name"]
+        rows,
+        columns=[
+            "key",
+            "qc_description",
+            "qc_name",
+            "qc_short_name",
+            "unit_accession",
+            "unit_name",
+        ],
     )
     return df.sort_values(by="key", ascending=True).reset_index(drop=True)

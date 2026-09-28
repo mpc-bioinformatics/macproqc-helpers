@@ -201,7 +201,7 @@ def seed_default_flags(registry: Dict[str, dict]) -> Dict[str, dict]:
 
 
 def load_metric_registry(path: str) -> Dict[str, dict]:
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 
@@ -231,7 +231,9 @@ def get_or_update_metric_registry(hdf5_paths: List[str], registry_path: str) -> 
             existing = load_metric_registry(registry_path)
         except (OSError, ValueError) as exc:
             logger.warning(
-                "Could not read metric registry file '%s' (%s); regenerating it.", registry_path, exc
+                "Could not read metric registry file '%s' (%s); regenerating it.",
+                registry_path,
+                exc,
             )
 
     active = merge_metric_registry(fresh, existing)
@@ -248,7 +250,9 @@ def get_or_update_metric_registry(hdf5_paths: List[str], registry_path: str) -> 
     return active
 
 
-def metrics_with_flag(registry: Dict[str, dict], flag: str, preferred_order: List[str]) -> List[str]:
+def metrics_with_flag(
+    registry: Dict[str, dict], flag: str, preferred_order: List[str]
+) -> List[str]:
     """Return metric short names for which `registry[name][flag]` is truthy,
     ordered by `preferred_order` first, then any remaining flagged metrics
     (e.g. user-added ones) alphabetically."""

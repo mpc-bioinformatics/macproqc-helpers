@@ -1,23 +1,14 @@
-
-
 import argparse
 from collections import defaultdict
+
 import h5py
 import numpy as np
-
-from fisher_py import RawFile
-from fisher_py.data import Device, ToleranceUnits
+from fisher_py.data import Device
 from fisher_py.data.business import (
-    ChromatogramSignal,
     ChromatogramTraceSettings,
-    GenericDataTypes,
-    Scan,
-    SpectrumPacketType,
-    TraceType
+    TraceType,
 )
-from fisher_py.data.filter_enums import MsOrderType
-from fisher_py.mass_precision_estimator import PrecisionEstimate
-from fisher_py.raw_file_reader import RawFileAccess, RawFileReaderAdapter
+from fisher_py.raw_file_reader import RawFileReaderAdapter
 
 import macproqc_helpers.utils.hdf5 as mzhdf5
 
@@ -30,7 +21,11 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     )
     parser.add_argument("-raw", help="FeatureXML with already annotated identifications")
     parser.add_argument("-out_hdf5", help="The Output statistics HDF5")
-    parser.add_argument("-extra_headers_to_parse", "-ehtp", help="The Headers to parse. Can be applied multiple times", action="append", 
+    parser.add_argument(
+        "-extra_headers_to_parse",
+        "-ehtp",
+        help="The Headers to parse. Can be applied multiple times",
+        action="append",
         default=[
             "Ion Injection Time (ms)",
             "Number of Lock Masses",
@@ -41,15 +36,25 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
             "LM Search Window (mmu)",
             "Last Locking (sec)",
             "LM m/z-Correction (ppm),LM Correction",
-    ])
-    parser.add_argument("-tune_headers_to_parse", "-thtp", help="The Headers to parse. Can be applied multiple times. NOTE: These entries are one dimensional.", action="append", 
+        ],
+    )
+    parser.add_argument(
+        "-tune_headers_to_parse",
+        "-thtp",
+        help="The Headers to parse. Can be applied multiple times. NOTE: These entries are one dimensional.",
+        action="append",
         default=[
             "Ion Transfer Tube Temperature (+ or +-)",
             "Ion Transfer Tube Temperature (-)",
             "Vaporizer Temp. (+ or +-)",
             "Vaporizer Temp. (-)",
-    ])
-    parser.add_argument("-log_headers_to_parse", "-lhtp", help="The Headers to parse. Can be applied multiple times", action="append", 
+        ],
+    )
+    parser.add_argument(
+        "-log_headers_to_parse",
+        "-lhtp",
+        help="The Headers to parse. Can be applied multiple times",
+        action="append",
         default=[
             "Ion Transfer Tube Temperature (°C)",
             "Vaporizer Temperature (°C)",
@@ -68,13 +73,14 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
             "MCB Ambient Temp. (°C)",
             "MCB PCB Temp. (°C)",
             "TX PCB temperature (°C)",
-    ])
-    
+        ],
+    )
+
     parser.set_defaults(func=collect)
 
 
 def get_headers_to_parse(headers, headers_from_raw):
-    """ Helper function to map which header from which index should be retrieved"""
+    """Helper function to map which header from which index should be retrieved"""
     statistics_to_retrieve = []
     for idx, h in enumerate(headers_from_raw):
         for hp in headers:
@@ -94,21 +100,17 @@ def collect(args: argparse.Namespace) -> None:
     raw_file.select_instrument(Device.MS, 1)  # Selecting the MS
 
     log_statistics_to_retrieve = get_headers_to_parse(
-        args.log_headers_to_parse,
-        raw_file.get_status_log_header_information()
+        args.log_headers_to_parse, raw_file.get_status_log_header_information()
     )
     tune_statistics_to_retrieve = get_headers_to_parse(
-        args.tune_headers_to_parse,
-        raw_file.get_tune_data_header_information()
+        args.tune_headers_to_parse, raw_file.get_tune_data_header_information()
     )
     extra_statistics_to_retrieve = get_headers_to_parse(
-        args.extra_headers_to_parse,
-        raw_file.get_trailer_extra_header_information()
+        args.extra_headers_to_parse, raw_file.get_trailer_extra_header_information()
     )
 
     # Open HDF5 file in write mode
-    with h5py.File(args.out_hdf5, 'w') as out_h5:
-
+    with h5py.File(args.out_hdf5, "w") as out_h5:
         # Retrieve all the information
         first_scan_number = raw_file.run_header_ex.first_spectrum
         last_scan_number = raw_file.run_header_ex.last_spectrum
@@ -130,7 +132,7 @@ def collect(args: argparse.Namespace) -> None:
         if len(list(data_dict.keys())) != 0:
             column_name = list(data_dict.keys())
             column_data = [data_dict[x] for x in column_name]
-            column_type = ["float64"]*len(column_name)
+            column_type = ["float64"] * len(column_name)
             mzhdf5.add_table_to_hdf5(
                 f=out_h5,
                 qc_acc="THERMO",
@@ -153,7 +155,7 @@ def collect(args: argparse.Namespace) -> None:
                 tune_dict["TUNE_" + hp] = tune_scan_values[idx]
             column_name = list(tune_dict.keys())
             column_data = [tune_dict[x] for x in column_name]
-            column_type = ["float64"]*len(column_name)
+            column_type = ["float64"] * len(column_name)
 
             mzhdf5.add_table_to_hdf5(
                 f=out_h5,
@@ -170,11 +172,13 @@ def collect(args: argparse.Namespace) -> None:
             )
 
         # Get all the information from the instruments (in FreeStyle under Devices)
-        num_devices = raw_file.get_instrument_count_of_type(Device.Analog)  # Get the number of devices
+        num_devices = raw_file.get_instrument_count_of_type(
+            Device.Analog
+        )  # Get the number of devices
         settings = ChromatogramTraceSettings(TraceType.Analog1)
         pump_pressure_dict = defaultdict(lambda: list())
 
-        for i in range(1, num_devices+1):
+        for i in range(1, num_devices + 1):
             # Iterate over each device
             raw_file.select_instrument(Device.Analog, i)
             label = raw_file.get_instrument_data().axis_label_y
@@ -192,7 +196,10 @@ def collect(args: argparse.Namespace) -> None:
             pump_pressure_dict["pump_pressure_bar_y_axis"] = [np.nan]
 
         column_name = ["pump_pressure_x_axis", "pump_pressure_y_axis"]
-        column_data = [pump_pressure_dict["pump_pressure_bar_x_axis"], pump_pressure_dict["pump_pressure_bar_y_axis"]]
+        column_data = [
+            pump_pressure_dict["pump_pressure_bar_x_axis"],
+            pump_pressure_dict["pump_pressure_bar_y_axis"],
+        ]
         column_type = ["float64", "float64"]
 
         mzhdf5.add_table_to_hdf5(
@@ -213,4 +220,4 @@ def collect(args: argparse.Namespace) -> None:
         )
 
     # Close raw-file
-    raw_file.dispose()  
+    raw_file.dispose()
