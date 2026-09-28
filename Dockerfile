@@ -15,6 +15,10 @@ RUN micromamba env create -y -f environment.yml \
     && micromamba clean --all --yes
 
 
+# Git commit SHA of the build, reported by `macproqc-helpers --version`
+ARG GIT_SHA=unknown
+ENV MACPROQC_GIT_SHA=${GIT_SHA}
+
 USER root
 # First is necessary for base_image to actvate the conda environment second is entrypoint
 # which adds the python file to PATH
