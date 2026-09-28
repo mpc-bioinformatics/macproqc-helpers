@@ -51,14 +51,29 @@ dependencies = [
 
 
 [project.optional-dependencies]
-dev = ["pytest>=6.0", "pytest-cov", "black", "flake8", "pylint"]
+dev = ["pytest>=6.0", "pytest-cov", "ruff", "ty"]
 
 [project.scripts]
 macproqc-helpers = "macproqc_helpers.cli:main"
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-target-version = ["py38"]
+target-version = "py38"
+src = ["src", "tests"]
+extend-exclude = ["src/macproqc_helpers/helpers/collect_metrics_from_pia_outpur.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# Long lines are mostly argparse help text / error messages that don't benefit
+# from manual wrapping; ruff format already keeps actual code within line-length.
+ignore = ["E501"]
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = ["src/macproqc_helpers/helpers/collect_metrics_from_pia_outpur.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
