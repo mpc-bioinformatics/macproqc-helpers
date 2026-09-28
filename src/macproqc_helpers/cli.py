@@ -6,7 +6,9 @@ Combines multiple mass spectrometry quality control analysis scripts into a unif
 """
 
 import argparse
+import os
 import sys
+from importlib.metadata import PackageNotFoundError, version
 
 from macproqc_helpers.helpers import (
     collect_metrics_from_bruker,
@@ -24,13 +26,23 @@ from macproqc_helpers.helpers import (
 )
 
 
+def get_version_string() -> str:
+    """Return the package version and the git commit SHA baked into the Docker image."""
+    try:
+        package_version = version("macproqc_helpers")
+    except PackageNotFoundError:
+        package_version = "unknown"
+    git_sha = os.environ.get("MACPROQC_GIT_SHA", "unknown")
+    return f"%(prog)s {package_version} (commit {git_sha})"
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
         description="MacProQC - Mass Spectrometry Quality Control Analysis Helpers",
     )
 
-    parser.add_argument("--version", action="version", version="%(prog)s 1.0.0")
+    parser.add_argument("--version", action="version", version=get_version_string())
 
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 

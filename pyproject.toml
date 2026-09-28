@@ -54,7 +54,7 @@ dependencies = [
 dev = ["pytest>=6.0", "pytest-cov", "black", "flake8", "pylint"]
 
 [project.scripts]
-macproqc = "macproqc.cli:main"
+macproqc-helpers = "macproqc_helpers.cli:main"
 
 [tool.black]
 line-length = 100
