@@ -59,13 +59,17 @@ import argparse
 import logging
 import os
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import h5py
 import numpy as np
 import pandas as pd
 
-from macproqc_helpers.helpers.visualization_io import read_array_metric, read_dataframe_metric, read_single_values
+from macproqc_helpers.helpers.visualization_io import (
+    read_array_metric,
+    read_dataframe_metric,
+    read_single_values,
+)
 from macproqc_helpers.helpers.visualization_plots import (
     _write_table,
     plot_additional_headers,
@@ -101,11 +105,11 @@ logger = logging.getLogger(__name__)
 
 
 def check_if_file_exists(s: str):
-    """ checks if a file exists. If not: raise Exception """
+    """checks if a file exists. If not: raise Exception"""
     if os.path.isfile(s):
         return s
     else:
-        raise Exception("File '{}' does not exists".format(s))
+        raise Exception(f"File '{s}' does not exists")
 
 
 def argparse_setup(subparsers: argparse._SubParsersAction):
@@ -114,23 +118,68 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         description="Visualize the QC results in the HDF5 files. This will create a table with all metrics and also create some plots. The plots will be saved as json files in the output folder.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-hdf5_files", type=check_if_file_exists, nargs="+", help = "hdf5 files which are used for visualization as string separated by whitespace", default = None)
-    parser.add_argument("-output", help="Output folder for the plots as json files.", default = "graphics")
-    parser.add_argument("-output_table_type", help="Type of output table (one of csv, tsv or xlsx)", default = "csv")
-    parser.add_argument("-figure_format", help="Type of output figures (one or more of html and plotly)", default = "plotly") # "html,ploty" for both
-    parser.add_argument("-spikeins", help = "Whether to analyse spike-ins", default = False, action = "store_true")
-    parser.add_argument("-group", help="List of the experimental group (comma-separated).", default=None)  ### TODO: input table with group information
-    parser.add_argument("-RT_unit", help="Unit of the retention time, either sec for seconds or min for minutes.", default = "sec")
-    parser.add_argument("-fig_show", help = "Show figures, e.g. for debugging?", default = False, action = "store_true")
-    parser.add_argument("-output_column_order", help = "Order of columns in the output table", default = None, type = str)
-    parser.add_argument("-spikein_columns", help = "Columns of the spike-in dataframes that should end up in the result table", default = "MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT", type = str)
-    parser.add_argument("-height_barplots", help = "Height of the barplots in pixels", default = 700, type = int) # in pixels
-    parser.add_argument("-width_barplots", help = "Width of the barplots in pixels", default = 0, type = int) # default 0: flexible width, in pixels
-    parser.add_argument("-height_pca", help = "Height of the PCA plots in pixels", default = 1000, type = int) # in pixels
-    parser.add_argument("-width_pca", help = "Width of the PCA plots in pixels", default = 1000, type = int) # in pixels
-    parser.add_argument("-height_ionmaps", help = "Height of the ionmaps in inches", default = 10, type = int)
-    parser.add_argument("-width_ionmaps", help = "Width of the ionmaps in inches", default = 10, type = int)
-    parser.add_argument("-spike_ins_table", help = "Path to the spike-ins table file", default = None, type = str)
+    parser.add_argument(
+        "-hdf5_files",
+        type=check_if_file_exists,
+        nargs="+",
+        help="hdf5 files which are used for visualization as string separated by whitespace",
+        default=None,
+    )
+    parser.add_argument(
+        "-output", help="Output folder for the plots as json files.", default="graphics"
+    )
+    parser.add_argument(
+        "-output_table_type", help="Type of output table (one of csv, tsv or xlsx)", default="csv"
+    )
+    parser.add_argument(
+        "-figure_format",
+        help="Type of output figures (one or more of html and plotly)",
+        default="plotly",
+    )  # "html,ploty" for both
+    parser.add_argument(
+        "-spikeins", help="Whether to analyse spike-ins", default=False, action="store_true"
+    )
+    parser.add_argument(
+        "-group", help="List of the experimental group (comma-separated).", default=None
+    )  ### TODO: input table with group information
+    parser.add_argument(
+        "-RT_unit",
+        help="Unit of the retention time, either sec for seconds or min for minutes.",
+        default="sec",
+    )
+    parser.add_argument(
+        "-fig_show", help="Show figures, e.g. for debugging?", default=False, action="store_true"
+    )
+    parser.add_argument(
+        "-output_column_order", help="Order of columns in the output table", default=None, type=str
+    )
+    parser.add_argument(
+        "-spikein_columns",
+        help="Columns of the spike-in dataframes that should end up in the result table",
+        default="MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT",
+        type=str,
+    )
+    parser.add_argument(
+        "-height_barplots", help="Height of the barplots in pixels", default=700, type=int
+    )  # in pixels
+    parser.add_argument(
+        "-width_barplots", help="Width of the barplots in pixels", default=0, type=int
+    )  # default 0: flexible width, in pixels
+    parser.add_argument(
+        "-height_pca", help="Height of the PCA plots in pixels", default=1000, type=int
+    )  # in pixels
+    parser.add_argument(
+        "-width_pca", help="Width of the PCA plots in pixels", default=1000, type=int
+    )  # in pixels
+    parser.add_argument(
+        "-height_ionmaps", help="Height of the ionmaps in inches", default=10, type=int
+    )
+    parser.add_argument(
+        "-width_ionmaps", help="Width of the ionmaps in inches", default=10, type=int
+    )
+    parser.add_argument(
+        "-spike_ins_table", help="Path to the spike-ins table file", default=None, type=str
+    )
     parser.add_argument(
         "-metric_registry_file",
         help=(
@@ -165,7 +214,9 @@ def _run_figure_step(step_name: str, func, *args, **kwargs) -> None:
         logger.warning("Figure step '%s' failed unexpectedly (%s); skipping.", step_name, exc)
 
 
-def _assemble_table(metric_order: List[str], columns: Dict[str, pd.DataFrame], n_rows: int) -> pd.DataFrame:
+def _assemble_table(
+    metric_order: List[str], columns: Dict[str, pd.DataFrame], n_rows: int
+) -> pd.DataFrame:
     """Concatenate already-built per-metric column-frames into one table, in
     `metric_order` order. A metric with no entry in `columns` (unknown to
     the registry, or its data could not be fetched/assembled) falls back to
@@ -213,64 +264,123 @@ def _process_group_metrics(
     }
 
     standalone_figures = [
-        ("MS1_TIC", lambda data: _run_figure_step("fig04", plot_tic_overlay, data, args, output_path)),
+        (
+            "MS1_TIC",
+            lambda data: _run_figure_step("fig04", plot_tic_overlay, data, args, output_path),
+        ),
         (
             "RT_TIC_quantiles",
             lambda data: _run_figure_step(
-                "fig05", plot_quantile_barplot, data, hdf5_file_names, "RT_TIC_quantiles", "RT_TIC_Q_",
-                "Quartiles of TIC over retention time", "fig05_barplot_TIC_quartiles", args, output_path,
+                "fig05",
+                plot_quantile_barplot,
+                data,
+                hdf5_file_names,
+                "RT_TIC_quantiles",
+                "RT_TIC_Q_",
+                "Quartiles of TIC over retention time",
+                "fig05_barplot_TIC_quartiles",
+                args,
+                output_path,
             ),
         ),
         (
             "RT_MS1_quantiles",
             lambda data: _run_figure_step(
-                "fig06", plot_quantile_barplot, data, hdf5_file_names, "RT_MS1_quantiles", "RT_MS1_Q_",
-                "Quartiles of MS1 over retention time", "fig06_barplot_MS1_TIC_quartiles", args, output_path,
+                "fig06",
+                plot_quantile_barplot,
+                data,
+                hdf5_file_names,
+                "RT_MS1_quantiles",
+                "RT_MS1_Q_",
+                "Quartiles of MS1 over retention time",
+                "fig06_barplot_MS1_TIC_quartiles",
+                args,
+                output_path,
             ),
         ),
         (
             "RT_MS2_quantiles",
             lambda data: _run_figure_step(
-                "fig07", plot_quantile_barplot, data, hdf5_file_names, "RT_MS2_quantiles", "RT_MS2_Q_",
-                "Quartiles of MS2 over retention time", "fig07_barplot_MS2_TIC_quartiles", args, output_path,
+                "fig07",
+                plot_quantile_barplot,
+                data,
+                hdf5_file_names,
+                "RT_MS2_quantiles",
+                "RT_MS2_Q_",
+                "Quartiles of MS2 over retention time",
+                "fig07_barplot_MS2_TIC_quartiles",
+                args,
+                output_path,
             ),
         ),
         (
             "MS2_prec_charge_fraction",
             lambda data: _run_figure_step(
-                "fig08", plot_category_fraction_barplot, data, hdf5_file_names, "MS2_prec_charge_fraction",
-                pca_category_relabel["MS2_prec_charge_fraction"][0], "Charge states of precursors",
-                "fig08_barplot_precursor_charge", args, output_path,
+                "fig08",
+                plot_category_fraction_barplot,
+                data,
+                hdf5_file_names,
+                "MS2_prec_charge_fraction",
+                pca_category_relabel["MS2_prec_charge_fraction"][0],
+                "Charge states of precursors",
+                "fig08_barplot_precursor_charge",
+                args,
+                output_path,
                 replace_zero_with=pca_category_relabel["MS2_prec_charge_fraction"][1],
             ),
         ),
         (
             "PSM_charge_fractions",
             lambda data: _run_figure_step(
-                "fig09", plot_category_fraction_barplot, data, hdf5_file_names, "PSM_charge_fractions",
-                pca_category_relabel["PSM_charge_fractions"][0], "Charge states of PSMs",
-                "fig09_barplot_PSM_charge", args, output_path,
+                "fig09",
+                plot_category_fraction_barplot,
+                data,
+                hdf5_file_names,
+                "PSM_charge_fractions",
+                pca_category_relabel["PSM_charge_fractions"][0],
+                "Charge states of PSMs",
+                "fig09_barplot_PSM_charge",
+                args,
+                output_path,
             ),
         ),
         (
             "PSM_missed_cleavages_fractions",
             lambda data: _run_figure_step(
-                "fig10", plot_category_fraction_barplot, data, hdf5_file_names, "PSM_missed_cleavages_fractions",
-                pca_category_relabel["PSM_missed_cleavages_fractions"][0], "Fraction of missed cleavages for PSMs",
-                "fig10_barplot_PSM_missedcleavages", args, output_path,
+                "fig10",
+                plot_category_fraction_barplot,
+                data,
+                hdf5_file_names,
+                "PSM_missed_cleavages_fractions",
+                pca_category_relabel["PSM_missed_cleavages_fractions"][0],
+                "Fraction of missed cleavages for PSMs",
+                "fig10_barplot_PSM_missedcleavages",
+                args,
+                output_path,
             ),
         ),
         (
             "pump_pressure",
-            lambda data: _run_figure_step("fig14", plot_pump_pressure, data, hdf5_file_names, args, output_path),
+            lambda data: _run_figure_step(
+                "fig14", plot_pump_pressure, data, hdf5_file_names, args, output_path
+            ),
         ),
         (
             "filtered_psms_ppm_error_quartiles",
             lambda data: _run_figure_step(
-                "fig15", plot_psm_ppm_error_boxplot, data, hdf5_file_names, single_values, args, output_path
+                "fig15",
+                plot_psm_ppm_error_boxplot,
+                data,
+                hdf5_file_names,
+                single_values,
+                args,
+                output_path,
             ),
         ),
-        ("Calibrants", lambda data: _run_figure_step("fig17", plot_bruker_calibrants, data, args, output_path)),
+        (
+            "Calibrants",
+            lambda data: _run_figure_step("fig17", plot_bruker_calibrants, data, args, output_path),
+        ),
     ]
     figures_by_metric = dict(standalone_figures)
 
@@ -284,7 +394,7 @@ def _process_group_metrics(
     needed: Dict[str, dict] = {}
     for metric in list(metric_list) + pca_raw_metrics + pca_all_metrics:
         entry = registry.get(metric)
-        if _is_group_metric(entry) and metric != "MS1_map":
+        if entry is not None and _is_group_metric(entry) and metric != "MS1_map":
             needed.setdefault(metric, entry)
     for metric in figures_by_metric:
         entry = registry.get(metric)
@@ -312,33 +422,54 @@ def _process_group_metrics(
                     metric, metric_type, data, hdf5_file_names, args.RT_unit, args.spike_ins_table
                 )
             except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
-                logger.warning("Could not assemble metric '%s' (%s); filling with NaN.", metric, exc)
+                logger.warning(
+                    "Could not assemble metric '%s' (%s); filling with NaN.", metric, exc
+                )
                 col_frame = pd.DataFrame({metric: [np.nan] * len(hdf5_file_names)})
             if metric in metric_list:
                 table0_columns[metric] = col_frame
 
             pca_col_frame = col_frame
-            if metric in pca_category_relabel and (metric in pca_raw_metrics or metric in pca_all_metrics):
+            if metric in pca_category_relabel and (
+                metric in pca_raw_metrics or metric in pca_all_metrics
+            ):
                 category_col, replace_zero_with = pca_category_relabel[metric]
-                relabeled_data: Dict[str, pd.DataFrame] = {}
+                # `data` may hold `np.ndarray` values when `metric_type == TYPE_ARRAY`;
+                # those are passed through unchanged below, only DataFrames get relabeled.
+                relabeled_data: Dict[str, Union[pd.DataFrame, np.ndarray]] = {}
                 for fname, df in data.items():
                     try:
-                        if df is not None and not df.empty and category_col in df.columns:
-                            relabeled_data[fname] = relabel_category_extremes(df, category_col, replace_zero_with)
+                        if (
+                            isinstance(df, pd.DataFrame)
+                            and not df.empty
+                            and category_col in df.columns
+                        ):
+                            relabeled_data[fname] = relabel_category_extremes(
+                                df, category_col, replace_zero_with
+                            )
                         else:
                             relabeled_data[fname] = df
                     except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
                         logger.warning(
                             "Could not relabel metric '%s' data for PCA use in file '%s' (%s); using raw values.",
-                            metric, fname, exc,
+                            metric,
+                            fname,
+                            exc,
                         )
                         relabeled_data[fname] = df
                 try:
                     pca_col_frame = _build_metric_columns(
-                        metric, metric_type, relabeled_data, hdf5_file_names, args.RT_unit, args.spike_ins_table
+                        metric,
+                        metric_type,
+                        relabeled_data,
+                        hdf5_file_names,
+                        args.RT_unit,
+                        args.spike_ins_table,
                     )
                 except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
-                    logger.warning("Could not assemble metric '%s' (%s); filling with NaN.", metric, exc)
+                    logger.warning(
+                        "Could not assemble metric '%s' (%s); filling with NaN.", metric, exc
+                    )
                     pca_col_frame = pd.DataFrame({metric: [np.nan] * len(hdf5_file_names)})
 
             if metric in pca_raw_metrics:
@@ -359,17 +490,23 @@ def _process_group_metrics(
 
 def visualize(args: argparse.Namespace) -> None:
     logging.basicConfig(
-        level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+        level=logging.INFO,
+        stream=sys.stderr,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    args.hdf5_files = sorted(args.hdf5_files)  # sorts the file names alphabetically (assumes same folder)
+    args.hdf5_files = sorted(
+        args.hdf5_files
+    )  # sorts the file names alphabetically (assumes same folder)
     output_path = args.output
     os.makedirs(output_path, exist_ok=True)
 
     if args.log_file:
         file_handler = logging.FileHandler(os.path.join(output_path, "visualization.log"))
         file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        )
         logging.getLogger().addHandler(file_handler)
 
     args.fig_html = args.figure_format.find("html") >= 0
@@ -418,21 +555,26 @@ def visualize(args: argparse.Namespace) -> None:
         timestamps = np.asarray(single_values["startTime"].values, dtype=float)
         n_missing = int(np.isnan(timestamps).sum())
         if n_missing == len(timestamps):
-            logger.warning("Metric 'startTime' missing/invalid in all files; PCA scatter coloring disabled.")
+            logger.warning(
+                "Metric 'startTime' missing/invalid in all files; PCA scatter coloring disabled."
+            )
             t_scaled = [0] * len(hdf5_file_names)
         else:
             if 0 < n_missing < len(timestamps):
                 missing_files = [f for f, t in zip(hdf5_file_names, timestamps) if np.isnan(t)]
                 logger.warning(
                     "Metric 'startTime' missing/invalid in %d of %d files (%s); those points will be colored neutrally.",
-                    n_missing, len(timestamps), ", ".join(missing_files),
+                    n_missing,
+                    len(timestamps),
+                    ", ".join(missing_files),
                 )
             mintime, maxtime = np.nanmin(timestamps), np.nanmax(timestamps)
             if mintime == maxtime:
                 t_scaled = [np.nan if np.isnan(t) else 1 for t in timestamps]
             else:
                 t_scaled = [
-                    np.nan if np.isnan(t) else (t - mintime) / (maxtime - mintime) * 100 for t in timestamps
+                    np.nan if np.isnan(t) else (t - mintime) / (maxtime - mintime) * 100
+                    for t in timestamps
                 ]
     else:
         t_scaled = [0] * len(hdf5_file_names)
@@ -498,13 +640,22 @@ def visualize(args: argparse.Namespace) -> None:
     ### Group (array/dataframe) metrics: read each one exactly once, build every consumer's
     ### output (summary-table column, PCA-raw column, PCA-all column, standalone figure) from it
     table0_columns, pca_raw_columns, pca_all_columns = _process_group_metrics(
-        hdf5_files, hdf5_file_names, registry, single_values, metric_list, pca_raw_metrics, pca_all_metrics, args,
+        hdf5_files,
+        hdf5_file_names,
+        registry,
+        single_values,
+        metric_list,
+        pca_raw_metrics,
+        pca_all_metrics,
+        args,
         output_path,
     )
 
     ##########################################################################################
     ### 00_table_summary
-    df_table0 = _assemble_table(metric_list, {**single_columns, **table0_columns}, len(hdf5_file_names))
+    df_table0 = _assemble_table(
+        metric_list, {**single_columns, **table0_columns}, len(hdf5_file_names)
+    )
     _write_table(df_table0, output_path, "00_table_summary", args.output_table_type)
 
     ##########################################################################################
@@ -514,7 +665,9 @@ def visualize(args: argparse.Namespace) -> None:
 
     ##########################################################################################
     ### fig11/fig12: PCA (feature tables assembled from the metrics already fetched above)
-    df_pl11 = _assemble_table(pca_raw_metrics, {**single_columns, **pca_raw_columns}, len(hdf5_file_names))
+    df_pl11 = _assemble_table(
+        pca_raw_metrics, {**single_columns, **pca_raw_columns}, len(hdf5_file_names)
+    )
     _run_figure_step(
         "fig11",
         run_pca_and_plot,
@@ -532,7 +685,9 @@ def visualize(args: argparse.Namespace) -> None:
         "fig11c_table_loadings_raw",
     )
 
-    df_pl12 = _assemble_table(pca_all_metrics, {**single_columns, **pca_all_columns}, len(hdf5_file_names))
+    df_pl12 = _assemble_table(
+        pca_all_metrics, {**single_columns, **pca_all_columns}, len(hdf5_file_names)
+    )
     _run_figure_step(
         "fig12",
         run_pca_and_plot,
@@ -553,6 +708,6 @@ def visualize(args: argparse.Namespace) -> None:
     ##########################################################################################
     ### fig13/fig16: large, per-file-streamed figures - not part of the group-metric pass above
     _run_figure_step("fig13", plot_ms1_maps, hdf5_files, registry, args, output_path)
-    _run_figure_step("fig16", plot_additional_headers, hdf5_files, hdf5_file_names, registry, args, output_path)
-
-
+    _run_figure_step(
+        "fig16", plot_additional_headers, hdf5_files, hdf5_file_names, registry, args, output_path
+    )

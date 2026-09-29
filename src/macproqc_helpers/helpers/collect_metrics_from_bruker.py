@@ -2,44 +2,71 @@ import argparse
 import os
 import sqlite3
 
-from alphatims.bruker import TimsTOF
 import h5py
 import numpy as np
+from alphatims.bruker import TimsTOF
 
 import macproqc_helpers.utils.hdf5 as mzhdf5
 
 
 def argparse_setup(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
-        "collect-metrics-from-bruker",
-        description="Collect metrics from Bruker files."
+        "collect-metrics-from-bruker", description="Collect metrics from Bruker files."
     )
     parser.add_argument("-d_folder", help="FeatureXML with already annotated identifications")
-    parser.add_argument("-out_hdf5", help="The Output statistics HDF5")
-    parser.add_argument("-headers_to_parse", "-htp", help="The Headers to parse. Can be applied multiple times", action="append", default=[
-        "Vacuum_CurrentFore",
-        "Vacuum_Extra4thGauge",
-        "Vacuum_CurrentHigh",
-        "Vacuum_CurrentFunnel",
-        "Digitizer_CurrentTemp",
-        "TOF_DeviceTempCurrentValue1",
-        "TOF_DeviceTempCurrentValue2"
-    ])
-    parser.add_argument("-frame_headers_to_parse", "-fhtp", help="The Frame Headers to parse. Can be applied multiple times. If a header is not available it will be skipped.", action="append", default=[
-        "Pressure",
-    ])
-    parser.add_argument("-calibrants_to_retrieve", "-calibrants", help="Calibrants which should be retrieved. In the format MZ:Mobility. E.G.: 922.00978:1.1895", action="append", default=[
-        "622.0290:0.9913",
-        "922.009798:1.1895",
-        "1221.990637:1.3820"
-    ])
-    parser.add_argument("-calibrants_mz_tolerance", "-cal_mz_tol", help="The MZ Tolerance for the calibrants in Th (m/z). Default: 10", type=float, default=10)
-    parser.add_argument("-calibrants_mobility_tolerance", "-cal_mob_tol", help="The Mobility Tolerance for the calibrants in 1/K0 (1/K0). Default: 0.1", type=float, default=0.1)
+    parser.add_argument("-out_hdf5", help="The HDF5 containing the extracted metrics")
+    parser.add_argument(
+        "-headers_to_parse",
+        "-htp",
+        help="The Headers to parse. Can be applied multiple times",
+        action="append",
+        default=[
+            "Vacuum_CurrentFore",
+            "Vacuum_Extra4thGauge",
+            "Vacuum_CurrentHigh",
+            "Vacuum_CurrentFunnel",
+            "Digitizer_CurrentTemp",
+            "TOF_DeviceTempCurrentValue1",
+            "TOF_DeviceTempCurrentValue2",
+        ],
+    )
+    parser.add_argument(
+        "-frame_headers_to_parse",
+        "-fhtp",
+        help="The Frame Headers to parse. Can be applied multiple times. If a header is not available it will be skipped.",
+        action="append",
+        default=[
+            "Pressure",
+        ],
+    )
+    parser.add_argument(
+        "-calibrants_to_retrieve",
+        "-calibrants",
+        help="Calibrants which should be retrieved. In the format MZ:Mobility. E.G.: 922.00978:1.1895",
+        action="append",
+        default=["622.0290:0.9913", "922.009798:1.1895", "1221.990637:1.3820"],
+    )
+    parser.add_argument(
+        "-calibrants_mz_tolerance",
+        "-cal_mz_tol",
+        help="The MZ Tolerance for the calibrants in Th (m/z). Default: 10",
+        type=float,
+        default=10,
+    )
+    parser.add_argument(
+        "-calibrants_mobility_tolerance",
+        "-cal_mob_tol",
+        help="The Mobility Tolerance for the calibrants in 1/K0 (1/K0). Default: 0.1",
+        type=float,
+        default=0.1,
+    )
 
     parser.set_defaults(func=extract)
 
 
-def get_calibrant_info(bruker_data, calibrant_mz, calibrant_mobility, mz_tolerance=10, mobility_tolerance=0.1):
+def get_calibrant_info(
+    bruker_data, calibrant_mz, calibrant_mobility, mz_tolerance=10, mobility_tolerance=0.1
+):
     """
     Gets the calibrants and returns, three arrays: RT, MZ and Mobility values.
 
@@ -55,13 +82,17 @@ def get_calibrant_info(bruker_data, calibrant_mz, calibrant_mobility, mz_toleran
 
     calibrant_values = bruker_data[
         :,
-        calibrant_lower_mobility: calibrant_upper_mobility,
-        slice(0,1),
-        calibrant_lower_mz: calibrant_upper_mz,
+        calibrant_lower_mobility:calibrant_upper_mobility,
+        slice(0, 1),
+        calibrant_lower_mz:calibrant_upper_mz,
     ]
 
     # Get the rows, which have the higest intensity for each retention time for the calibrant within a specific mz and mobility tolerance.
-    calibrant_values = calibrant_values.loc[calibrant_values[["rt_values", "intensity_values"]].groupby("rt_values").idxmax()["intensity_values"]]
+    calibrant_values = calibrant_values.loc[
+        calibrant_values[["rt_values", "intensity_values"]]
+        .groupby("rt_values")
+        .idxmax()["intensity_values"]
+    ]
 
     calibrant_values_rts = np.array(calibrant_values.index)
     calibrant_values_mzs = np.array(calibrant_values["mz_values"])
@@ -75,9 +106,7 @@ def extract(args: argparse.Namespace) -> None:
     cur = con.cursor()
 
     # Get all property definitions
-    res = cur.execute(
-        "SELECT ID, PermanentName from PropertyDefinitions"
-    )
+    res = cur.execute("SELECT ID, PermanentName from PropertyDefinitions")
     properties = res.fetchall()
     property_names = [x[1] for x in properties]
 
@@ -88,52 +117,50 @@ def extract(args: argparse.Namespace) -> None:
     # Filter to only needed ones
     p_index = []
     p_name = []
-    p_col_name = []
     for n in args.headers_to_parse:
         try:
             p_index.append(properties[property_names.index(n)][0])
             p_name.append(n)
-        except:
-            print("WARNING: Property '{}' not found!".format(n))
+        except Exception:
+            print(f"WARNING: Property '{n}' not found!")
 
     # Open HDF5 file in write mode
-    with h5py.File(args.out_hdf5, 'w') as out_h5:
-
+    with h5py.File(args.out_hdf5, "w") as out_h5:
         # Extract data for each frame:
         data_dict = dict()
         for idx, name in zip(p_index, p_name):
-            res = cur.execute(
-                "SELECT Frame, Value from Properties WHERE  Property = {}".format(idx)
-            )
+            res = cur.execute(f"SELECT Frame, Value from Properties WHERE  Property = {idx}")
             metadata = res.fetchall()
 
-            data_dict[name] = [x[1]if x[1] is not None else np.nan for x in sorted(metadata, key=lambda x: x[0])]
+            data_dict[name] = [
+                x[1] if x[1] is not None else np.nan for x in sorted(metadata, key=lambda x: x[0])
+            ]
 
         # Special CASE: Get MS/MS-Type (and additional headers if available from table Frames)
         frame_columns = [x[1] for x in cur.execute("PRAGMA table_info(Frames);").fetchall()]
-        headers_to_retrieve = ["Id", "Time", "MsMsType"]  # Standard headers which always will be extracted.
-        
+        headers_to_retrieve = [
+            "Id",
+            "Time",
+            "MsMsType",
+        ]  # Standard headers which always will be extracted.
+
         for h in args.frame_headers_to_parse:
             if h in frame_columns:
                 if h not in headers_to_retrieve:
                     headers_to_retrieve.append(h)
             else:
-                print("WARNING: Frame Header '{}' not found!".format(h))
+                print(f"WARNING: Frame Header '{h}' not found!")
 
-        res = cur.execute(
-            "SELECT " + ", ".join(headers_to_retrieve) + " from Frames"
-        )
+        res = cur.execute("SELECT " + ", ".join(headers_to_retrieve) + " from Frames")
         frame_data = res.fetchall()
         sorted_frame_data = sorted(frame_data, key=lambda x: x[0])
-        
+
         # Add to final result table
         column_name = list(data_dict.keys()) + headers_to_retrieve
         column_data = [data_dict[x] for x in data_dict.keys()]
         for c in headers_to_retrieve[:]:
-            column_data.append(
-                [x[headers_to_retrieve.index(c)] for x in sorted_frame_data]
-            )
-        column_type = ["float64"]*len(column_name)
+            column_data.append([x[headers_to_retrieve.index(c)] for x in sorted_frame_data])
+        column_type = ["float64"] * len(column_name)
 
         mzhdf5.add_table_to_hdf5(
             f=out_h5,
@@ -165,22 +192,18 @@ def extract(args: argparse.Namespace) -> None:
         if len(traces) != 0:
             trace_id = traces[0][1]
             res = cur.execute(
-                "SELECT Times, Intensities from TraceChunks WHERE Trace = {}".format(trace_id)
+                f"SELECT Times, Intensities from TraceChunks WHERE Trace = {trace_id}"
             )
-            trace_chunks = res.fetchall() 
+            trace_chunks = res.fetchall()
 
             # Extract from binary data
             times = []
             data = []
             for t_chunk, d_chunk in trace_chunks:
                 for t_off in range(0, len(t_chunk), 8):
-                    times.append(
-                        int.from_bytes(t_chunk[t_off:t_off+8], byteorder="little")
-                    )
+                    times.append(int.from_bytes(t_chunk[t_off : t_off + 8], byteorder="little"))
                 for t_off in range(0, len(d_chunk), 4):
-                    data.append(
-                        int.from_bytes(d_chunk[t_off:t_off+4], byteorder="little")
-                    )
+                    data.append(int.from_bytes(d_chunk[t_off : t_off + 4], byteorder="little"))
         else:
             times, data = [np.nan], [np.nan]
 
@@ -203,8 +226,14 @@ def extract(args: argparse.Namespace) -> None:
         br_data = TimsTOF(args.d_folder)
 
         try:
-            column_name = ["calibrant_mz", "calibrant_mobility", "observed_calibrant_rt", "observed_calibrant_mz", "observed_calibrant_mobility"]
-            column_data = [[],[], [], [], []]
+            column_name = [
+                "calibrant_mz",
+                "calibrant_mobility",
+                "observed_calibrant_rt",
+                "observed_calibrant_mz",
+                "observed_calibrant_mobility",
+            ]
+            column_data = [[], [], [], [], []]
             column_type = ["float64", "float64", "float64", "float64", "float64"]
 
             for calibrant in args.calibrants_to_retrieve:
@@ -221,9 +250,7 @@ def extract(args: argparse.Namespace) -> None:
                 )
 
                 column_data[0] = np.append(column_data[0], [[mz] * len(calibrant_rts)])
-                column_data[1] = np.append(
-                    column_data[1], [[mobility] * len(calibrant_rts)]
-                )
+                column_data[1] = np.append(column_data[1], [[mobility] * len(calibrant_rts)])
                 column_data[2] = np.append(column_data[2], [calibrant_rts])
                 column_data[3] = np.append(column_data[3], [calibrant_mzs])
                 column_data[4] = np.append(column_data[4], [calibrant_mobilities])
@@ -241,9 +268,7 @@ def extract(args: argparse.Namespace) -> None:
                 column_data=column_data,
                 column_types=column_type,
             )
-        except:
+        except Exception as err:
             raise ValueError(
-                "The calibrant '{}'could not be retrieved. Is it in the correct format?  ('MZ:Mobility')".format(
-                    args.calibrants_to_retrieve
-                )
-            )
+                f"The calibrant '{args.calibrants_to_retrieve}'could not be retrieved. Is it in the correct format?  ('MZ:Mobility')"
+            ) from err

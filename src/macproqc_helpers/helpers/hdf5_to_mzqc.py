@@ -1,18 +1,17 @@
-
 import argparse
-from datetime import datetime
+import json
 import os
 import re
-import json
+from datetime import datetime
 from typing import Any, Dict, List
 
 import h5py
-
-
 from mzqc import MZQCFile as qc
 
 PSI_ACCESSION_REGEX = r"(MS:[A-Z0-9]+).*"  # regular expression for a PSI-MS accession
-ACCESSION_REGEX = r"([A-Z0-9]+:[A-Z0-9]+) ! .+"  # regular expression for an accession ONTOLOGY:ACCESSION
+ACCESSION_REGEX = (
+    r"([A-Z0-9]+:[A-Z0-9]+) ! .+"  # regular expression for an accession ONTOLOGY:ACCESSION
+)
 
 
 def argparse_setup(subparsers: argparse._SubParsersAction):
@@ -22,8 +21,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-hdf5", help="Path to the hdf5 file created by McQuaC", required=True)
-    parser.add_argument("-mzqc_out", help="Output path for the generated mzQC file", required=True
-    )
+    parser.add_argument("-mzqc_out", help="Output path for the generated mzQC file", required=True)
     parser.set_defaults(func=convert)
 
 
@@ -45,12 +43,12 @@ def hdf5_entry_to_mzqc_metric(hdf5_file: h5py.File, key: str) -> qc.QualityMetri
         unit_name = hdf5_file[key].attrs.get("unit_name")
         metric_unit = {"unit_accession": unit_accession, "unit_name": unit_name}
 
-    if type(hdf5_file[key]) == h5py.Dataset:    # TODO: replace with isinstance()
+    if isinstance(hdf5_file[key], h5py.Dataset):
         if hdf5_file[key].shape[0] == 1:
             metric_value = hdf5_file[key][0]
         else:
             metric_value = list(hdf5_file[key])
-    elif type(hdf5_file[key]) == h5py.Group:    # TODO: replace with isinstance()
+    elif isinstance(hdf5_file[key], h5py.Group):
         # check, if all column names are an accession, defined by the ACCESSION_REGEX
         key_list = list(hdf5_file[key].keys())
 
@@ -63,7 +61,9 @@ def hdf5_entry_to_mzqc_metric(hdf5_file: h5py.File, key: str) -> qc.QualityMetri
         accession=metric_accession,
         name=metric_name,
         value=metric_value,
-        unit=metric_unit,
+        # pymzqc types `unit` as `str`, but the library actually stores whatever is
+        # passed (a dict with accession/name, or None) verbatim; see CvParameter.unit.
+        unit=metric_unit,  # ty: ignore[invalid-argument-type]
     )
     return qm
 
@@ -78,11 +78,12 @@ def table_from_hdf5_group(group: h5py.Group) -> Dict[str, List[Any]]:
     ret_dict = {}
 
     for k in column_names:
-        dict_key = re.match(ACCESSION_REGEX, k).group(1)
+        match = re.match(ACCESSION_REGEX, k)
+        # callers only pass groups whose keys were already verified against ACCESSION_REGEX
+        assert match is not None, f"Column name '{k}' does not match {ACCESSION_REGEX}"
+        dict_key = match.group(1)
         # Convert bytestrings to normal strings if needed
-        dict_val = [
-            val.decode("utf-8") if isinstance(val, bytes) else val for val in group[k]
-        ]
+        dict_val = [val.decode("utf-8") if isinstance(val, bytes) else val for val in group[k]]
         ret_dict[dict_key] = dict_val
 
     return ret_dict
@@ -126,14 +127,12 @@ def process_hdf5_to_run_quality(hdf5_path: str, analysis_software: List) -> qc.R
 
     input_file_raw = qc.InputFile(
         name=input_filename,
-        location=None,
+        location="",
         fileFormat=fileFormat,
         fileProperties=file_properties,
     )
 
-    meta = qc.MetaDataParameters(
-        inputFiles=[input_file_raw], analysisSoftware=analysis_software
-    )
+    meta = qc.MetaDataParameters(inputFiles=[input_file_raw], analysisSoftware=analysis_software)
     return qc.RunQuality(metadata=meta, qualityMetrics=quality_metrics)
 
 
@@ -173,6 +172,4 @@ def convert(args: argparse.Namespace) -> None:
     )
 
     with open(args.mzqc_out, "w") as mzqc_file:
-        mzqc_file.write(
-            json.dumps(json.loads(qc.JsonSerialisable.to_json(mzqc)), indent=2)
-        )
+        mzqc_file.write(json.dumps(json.loads(qc.JsonSerialisable.to_json(mzqc)), indent=2))

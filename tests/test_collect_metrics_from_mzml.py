@@ -1,5 +1,4 @@
 import argparse
-import math
 
 import h5py
 import numpy as np
@@ -7,7 +6,6 @@ import pyopenms
 import pytest
 
 from macproqc_helpers.helpers import collect_metrics_from_mzml
-
 
 FILTER_THRESHOLD = 0.1
 REPORT_UP_TO_CHARGE = 3
@@ -18,7 +16,9 @@ def _make_spectrum(rt, ms_level, mzs, intensities, precursor_mz=None, precursor_
     spectrum = pyopenms.MSSpectrum()
     spectrum.setRT(rt)
     spectrum.setMSLevel(ms_level)
-    spectrum.set_peaks((np.asarray(mzs, dtype=np.float64), np.asarray(intensities, dtype=np.float64)))
+    spectrum.set_peaks(
+        (np.asarray(mzs, dtype=np.float64), np.asarray(intensities, dtype=np.float64))
+    )
     if ms_level == 2:
         precursor = pyopenms.Precursor()
         precursor.setMZ(precursor_mz)
@@ -113,7 +113,7 @@ def _reference_metrics(exp):
         if spectrum.getMSLevel() != 1:
             continue
         mz, intens = spectrum.get_peaks()
-        for m, i in zip(mz, intens):
+        for _mz, i in zip(mz, intens):
             if i >= threshold:
                 raw_ms1_peaks_above_threshold.append(i)
 
@@ -138,14 +138,20 @@ def test_metrics_match_reference(small_mzml, tmp_path):
         assert int(out["MS:4000059 ! nr_MS1"][0]) == ref["num_ms1"]
         assert int(out["MS:4000060 ! nr_MS2"][0]) == ref["num_ms2"]
 
-        assert out["MS:4000029 ! accumulated_MS1_TIC"][()] == pytest.approx(ref["accumulated_ms1_tic"])
-        assert out["MS:4000030 ! accumulated_MS2_TIC"][()] == pytest.approx(ref["accumulated_ms2_tic"])
+        assert out["MS:4000029 ! accumulated_MS1_TIC"][()] == pytest.approx(
+            ref["accumulated_ms1_tic"]
+        )
+        assert out["MS:4000030 ! accumulated_MS2_TIC"][()] == pytest.approx(
+            ref["accumulated_ms2_tic"]
+        )
 
         rt_range = out["MS:4000070 ! RT_range"][()]
         assert rt_range[0] == pytest.approx(ref["rt_first"])
         assert rt_range[1] == pytest.approx(ref["rt_last"])
 
-        assert out["MS:4000202 ! base_peak_intensity_max"][()] == pytest.approx(ref["base_peak_intensity_max"])
+        assert out["MS:4000202 ! base_peak_intensity_max"][()] == pytest.approx(
+            ref["base_peak_intensity_max"]
+        )
 
         density_q = out["MS:4000061 ! MS1_density_quantiles"][()]
         assert list(density_q) == [
@@ -173,7 +179,9 @@ def test_ms1_map_conserves_total_intensity_above_threshold(small_mzml, tmp_path)
 
     with _run_collect(mzml_path, tmp_path) as out:
         grid_intensity = out["LOCAL:rtMzIntensityMS1 ! MS1_map/intensity"][()]
-        assert grid_intensity.sum() == pytest.approx(ref["raw_ms1_peak_sum_above_threshold"], rel=1e-6)
+        assert grid_intensity.sum() == pytest.approx(
+            ref["raw_ms1_peak_sum_above_threshold"], rel=1e-6
+        )
         # bounded by the fixed grid size, regardless of the number of peaks in the run
         assert len(grid_intensity) <= 50 * 50
 

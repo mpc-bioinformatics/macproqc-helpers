@@ -1,13 +1,11 @@
-
 """
 Helper-functions for the handling of quality metrics in HDF5 files
 """
 
-from typing import List, Any, Optional
+from typing import Any, List, Optional, Sequence, Union
 
 import h5py
 import numpy as np
-
 
 
 def add_entry_to_hdf5(
@@ -24,12 +22,12 @@ def add_entry_to_hdf5(
 ) -> None:
     """Adds a single value entry into the hdf5 file"""
 
-    key = f"{qc_acc} ! {qc_short_name}"  # like in OBO for terms, the key is "ACCESSION ! SHORT_NAME"
+    key = (
+        f"{qc_acc} ! {qc_short_name}"  # like in OBO for terms, the key is "ACCESSION ! SHORT_NAME"
+    )
 
     if value_type in ("str", h5py.string_dtype()):
-        ds = f.create_dataset(
-            key, shape=value_shape, dtype=h5py.string_dtype(), compression="gzip"
-        )
+        ds = f.create_dataset(key, shape=value_shape, dtype=h5py.string_dtype(), compression="gzip")
         ds[:] = value
     else:
         f.create_dataset(key, value_shape, dtype=value_type, compression="gzip")
@@ -51,12 +49,14 @@ def add_table_to_hdf5(
     qc_name: str,
     qc_description: str,
     column_names: List[str],
-    column_data: List[List[Any]],
+    column_data: Sequence[Union[Sequence[Any], np.ndarray]],
     column_types: List[str],
 ):
     """Adds a table with an arbitrary number of columns to the HDF5 file."""
 
-    key = f"{qc_acc} ! {qc_short_name}"  # like in OBO for terms, the key is "ACCESSION ! SHORT_NAME"
+    key = (
+        f"{qc_acc} ! {qc_short_name}"  # like in OBO for terms, the key is "ACCESSION ! SHORT_NAME"
+    )
 
     table_group = f.create_group(key)
     table_group.attrs["qc_short_name"] = qc_short_name

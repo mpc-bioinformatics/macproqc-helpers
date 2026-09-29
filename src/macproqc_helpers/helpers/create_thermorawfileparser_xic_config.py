@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
+import argparse
 import csv
 import json
-import argparse
 from statistics import mean
 from typing import Any, Dict, List
+
 from pyteomics import proforma
 
 
@@ -40,7 +41,7 @@ def create(args: argparse.Namespace):
 
     seq_to_data: Dict[str, Dict[str, Any]] = dict()
 
-    with open(args.icsv, "r", encoding="utf-8") as in_csv_file:
+    with open(args.icsv, encoding="utf-8") as in_csv_file:
         # Read spike-ins CSV and get header indicies
         csv_in = csv.reader(in_csv_file)
         header = next(csv_in)
@@ -73,7 +74,7 @@ def create(args: argparse.Namespace):
             }
 
     found_rts: Dict[str, List[float]] = dict()
-    with open(args.iidents, "r", encoding="utf-8") as in_ident_file:
+    with open(args.iidents, encoding="utf-8") as in_ident_file:
         rt_idx = 0
         score_label = ""
         score_idx = 0

@@ -44,7 +44,12 @@ def _skip_file_on_error(step_name: str, file_label: str):
     try:
         yield
     except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
-        logger.warning("Figure '%s': could not process file '%s' (%s); skipping this file.", step_name, file_label, exc)
+        logger.warning(
+            "Figure '%s': could not process file '%s' (%s); skipping this file.",
+            step_name,
+            file_label,
+            exc,
+        )
 
 
 def make_empty_figure(
@@ -101,10 +106,14 @@ def plot_single_value_barplot(
             logger.warning("Metric '%s' missing in all files; omitted from '%s'.", c, basename)
 
     if not present:
-        fig = make_empty_figure(f"None of the required metrics ({', '.join(columns)}) are available!", title=title)
+        fig = make_empty_figure(
+            f"None of the required metrics ({', '.join(columns)}) are available!", title=title
+        )
     else:
         df_long = single_values[["filename"] + present].melt(id_vars=["filename"])
-        fig = px.bar(df_long, x="filename", y="value", color="variable", barmode="group", title=title)
+        fig = px.bar(
+            df_long, x="filename", y="value", color="variable", barmode="group", title=title
+        )
         fig.update_yaxes(exponentformat="none")
         fig.update_xaxes(tickangle=-90)
         _apply_barplot_layout(fig, args)
@@ -146,7 +155,9 @@ def plot_tic_overlay(
     fig.update_traces(line=dict(width=0.5))
     fig.update_yaxes(exponentformat="E")
     _apply_barplot_layout(fig, args)
-    fig.update_layout(xaxis_title="Retention Time (sec)" if args.RT_unit == "sec" else "Retention Time (min)")
+    fig.update_layout(
+        xaxis_title="Retention Time (sec)" if args.RT_unit == "sec" else "Retention Time (min)"
+    )
 
     save_figure(fig, output_path, "fig04_MS1_TIC_overlay", args)
 
@@ -174,7 +185,9 @@ def plot_quantile_barplot(
             continue
         with _skip_file_on_error(basename, fname):
             for i, value in enumerate(array_values[fname], start=1):
-                rows.append({"filename": fname, "variable": f"{variable_prefix}{i}", "value": value})
+                rows.append(
+                    {"filename": fname, "variable": f"{variable_prefix}{i}", "value": value}
+                )
     df_long = pd.DataFrame(rows)
 
     fig = px.bar(df_long, x="filename", y="value", color="variable", title=title)
@@ -204,7 +217,9 @@ def plot_category_fraction_barplot(
             continue
         df = dataframes[fname]
         if category_col not in df.columns:
-            logger.warning("Column '%s' missing for metric '%s' in file '%s'.", category_col, metric, fname)
+            logger.warning(
+                "Column '%s' missing for metric '%s' in file '%s'.", category_col, metric, fname
+            )
             continue
         with _skip_file_on_error(basename, fname):
             df = relabel_category_extremes(df, category_col, replace_zero_with)
@@ -244,7 +259,9 @@ def run_pca_and_plot(
     `_process_group_metrics`)."""
     if len(hdf5_file_names) <= 1:
         fig = make_empty_figure(
-            "PCA cannot be computed using only one sample!", width=int(args.width_pca), height=int(args.height_pca)
+            "PCA cannot be computed using only one sample!",
+            width=int(args.width_pca),
+            height=int(args.height_pca),
         )
         save_figure(fig, output_path, scatter_basename, args)
         save_figure(fig, output_path, loadings_basename, args)
@@ -291,13 +308,23 @@ def run_pca_and_plot(
     loadings.insert(0, "variable", loadings.index)
     loadings.sort_values("length", ascending=False, inplace=True)
     fig_loadings = px.scatter(
-        loadings, x="PC1", y="PC2", title=loadings_title, hover_name="variable", hover_data=["PC1", "PC2"]
+        loadings,
+        x="PC1",
+        y="PC2",
+        title=loadings_title,
+        hover_name="variable",
+        hover_data=["PC1", "PC2"],
     )
     fig_loadings.update_layout(width=int(args.width_pca), height=int(args.height_pca))
 
     save_figure(fig, output_path, scatter_basename, args)
     save_figure(fig_loadings, output_path, loadings_basename, args)
-    _write_table(loadings.reset_index(drop=True), output_path, loadings_table_basename, args.output_table_type)
+    _write_table(
+        loadings.reset_index(drop=True),
+        output_path,
+        loadings_table_basename,
+        args.output_table_type,
+    )
 
 
 def plot_ms1_maps(
@@ -329,12 +356,20 @@ def plot_ms1_maps(
                     df_map["retention_time"] = df_map["retention_time"] / 60
 
                 fig, ax = plt.subplots(figsize=(15, 6))
-                points = ax.scatter(df_map["retention_time"], df_map["mz"], c=df_map["log_intensity"], s=1, cmap="Blues")
+                points = ax.scatter(
+                    df_map["retention_time"],
+                    df_map["mz"],
+                    c=df_map["log_intensity"],
+                    s=1,
+                    cmap="Blues",
+                )
                 fig.colorbar(points, label="log10_intensity")
                 fig.set_figheight(int(args.height_ionmaps))
                 fig.set_figwidth(int(args.width_ionmaps))
 
-                ax.set_xlabel("retention time (sec)" if args.RT_unit == "sec" else "retention time (min)")
+                ax.set_xlabel(
+                    "retention time (sec)" if args.RT_unit == "sec" else "retention time (min)"
+                )
                 ax.set_ylabel("m/z")
                 ax.set_title(fname)
                 if args.fig_show:
@@ -402,7 +437,9 @@ def plot_psm_ppm_error_boxplot(
     title = "Boxplot of PSM ppm error quartiles"
 
     if not array_values:
-        fig = make_empty_figure("Metric 'filtered_psms_ppm_error_quartiles' not available!", title=title)
+        fig = make_empty_figure(
+            "Metric 'filtered_psms_ppm_error_quartiles' not available!", title=title
+        )
         save_figure(fig, output_path, "fig15_PSM_error_boxplots", args)
         return
 
@@ -415,14 +452,24 @@ def plot_psm_ppm_error_boxplot(
             rows.append({"filename": fname, "Q1": q[0], "Q2": q[1], "Q3": q[2]})
 
     if not rows:
-        fig = make_empty_figure("Metric 'filtered_psms_ppm_error_quartiles' not available!", title=title)
+        fig = make_empty_figure(
+            "Metric 'filtered_psms_ppm_error_quartiles' not available!", title=title
+        )
         save_figure(fig, output_path, "fig15_PSM_error_boxplots", args)
         return
 
     df_pl15 = pd.DataFrame(rows)
 
-    mean_vals = single_values[["filtered_psms_ppm_error_mean"]].values if "filtered_psms_ppm_error_mean" in single_values.columns else None
-    sd_vals = single_values[["filtered_psms_ppm_error_sigma"]].values if "filtered_psms_ppm_error_sigma" in single_values.columns else None
+    mean_vals = (
+        single_values[["filtered_psms_ppm_error_mean"]].values
+        if "filtered_psms_ppm_error_mean" in single_values.columns
+        else None
+    )
+    sd_vals = (
+        single_values[["filtered_psms_ppm_error_sigma"]].values
+        if "filtered_psms_ppm_error_sigma" in single_values.columns
+        else None
+    )
 
     fig = go.Figure()
     fig.add_trace(
@@ -456,8 +503,12 @@ def plot_additional_headers(
 
     entry = registry.get("Extracted_Headers")
     if entry is None:
-        logger.warning("Metric 'Extracted_Headers' not available; no additional-header plots produced.")
-        fig = make_empty_figure("Metric 'Extracted_Headers' not available!", title="Additional headers")
+        logger.warning(
+            "Metric 'Extracted_Headers' not available; no additional-header plots produced."
+        )
+        fig = make_empty_figure(
+            "Metric 'Extracted_Headers' not available!", title="Additional headers"
+        )
         save_figure(fig, output_path, placeholder_basename, args)
         return
     full_key = entry["example_full_key"]
@@ -473,8 +524,12 @@ def plot_additional_headers(
                 all_headers.update(cols)
 
     if not all_headers:
-        logger.warning("No 'Extracted_Headers' columns found in any file; no additional-header plots produced.")
-        fig = make_empty_figure("No 'Extracted_Headers' columns found in any file!", title="Additional headers")
+        logger.warning(
+            "No 'Extracted_Headers' columns found in any file; no additional-header plots produced."
+        )
+        fig = make_empty_figure(
+            "No 'Extracted_Headers' columns found in any file!", title="Additional headers"
+        )
         save_figure(fig, output_path, placeholder_basename, args)
         return
 
@@ -485,14 +540,21 @@ def plot_additional_headers(
         time_header = "Scan_StartTime"  # Thermo
 
     if time_header is None:
-        logger.warning("No time header found in the extracted headers, cannot plot additional headers!")
-        fig = make_empty_figure("No time header found in the extracted headers!", title="Additional headers")
+        logger.warning(
+            "No time header found in the extracted headers, cannot plot additional headers!"
+        )
+        fig = make_empty_figure(
+            "No time header found in the extracted headers!", title="Additional headers"
+        )
         save_figure(fig, output_path, placeholder_basename, args)
         return
 
     skip_headers = {time_header, "MsMsType", "Scan_msLevel"}
     plot_headers = sorted(h for h in all_headers if h not in skip_headers)
-    ms1_filtered_headers = {"EXTRA_Ion Injection Time (ms)", "EXTRA_LM mz-Correction (ppm),LM Correction"}
+    ms1_filtered_headers = {
+        "EXTRA_Ion Injection Time (ms)",
+        "EXTRA_LM mz-Correction (ppm),LM Correction",
+    }
     needs_ms1_filter = any(h in ms1_filtered_headers for h in plot_headers)
 
     # Read every needed column for each file once (file-outer, header-inner).
@@ -590,20 +652,42 @@ def plot_bruker_calibrants(
 
             title_tmp = f"Calibrant {i} m/z: {mz_tmp}, ion mobility: {mobility_tmp}"
 
-            fig_mz = px.line(df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mz", color="filename", title=title_tmp)
+            fig_mz = px.line(
+                df_tmp,
+                x="observed_calibrant_rt",
+                y="observed_calibrant_mz",
+                color="filename",
+                title=title_tmp,
+            )
             fig_mz.update_traces(line=dict(width=0.5))
             fig_mz.add_hline(y=mz_tmp)
             _apply_barplot_layout(fig_mz, args)
-            fig_mz.update_layout(xaxis_title="Time (sec)" if args.RT_unit == "sec" else "Time (min)")
-            save_figure(fig_mz, output_path, os.path.join("fig17_BRUKER_calibrants", f"fig17a_Calibrant_mz_{i}"), args)
+            fig_mz.update_layout(
+                xaxis_title="Time (sec)" if args.RT_unit == "sec" else "Time (min)"
+            )
+            save_figure(
+                fig_mz,
+                output_path,
+                os.path.join("fig17_BRUKER_calibrants", f"fig17a_Calibrant_mz_{i}"),
+                args,
+            )
 
             fig_mobility = px.line(
-                df_tmp, x="observed_calibrant_rt", y="observed_calibrant_mobility", color="filename", title=title_tmp
+                df_tmp,
+                x="observed_calibrant_rt",
+                y="observed_calibrant_mobility",
+                color="filename",
+                title=title_tmp,
             )
             fig_mobility.update_traces(line=dict(width=0.5))
             fig_mobility.add_hline(y=mobility_tmp)
             _apply_barplot_layout(fig_mobility, args)
-            fig_mobility.update_layout(xaxis_title="Time (sec)" if args.RT_unit == "sec" else "Time (min)")
+            fig_mobility.update_layout(
+                xaxis_title="Time (sec)" if args.RT_unit == "sec" else "Time (min)"
+            )
             save_figure(
-                fig_mobility, output_path, os.path.join("fig17_BRUKER_calibrants", f"fig17b_Calibrant_ionmobility{i}"), args
+                fig_mobility,
+                output_path,
+                os.path.join("fig17_BRUKER_calibrants", f"fig17b_Calibrant_ionmobility{i}"),
+                args,
             )
