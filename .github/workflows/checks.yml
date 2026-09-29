@@ -41,17 +41,18 @@ jobs:
             - name: Check out repository
               uses: actions/checkout@v4
 
-            - name: Set up micromamba environment
-              uses: mamba-org/setup-micromamba@v3
+            - name: Set up Python
+              uses: actions/setup-python@v5
               with:
-                  environment-file: environment.yml
-                  init-shell: bash
-                  cache-environment: true
+                  python-version: "3.11"
+                  cache: pip
 
+            # Ty only needs the python module sources.
+            # It never loads or runs any of the modules
+            # which prevent the necessity to install 
+            # micromamba dependencies.
             - name: Install dev dependencies
               run: pip install -e '.[dev]'
-              shell: bash -el {0}
 
             - name: Type check
               run: ty check --output-format github
-              shell: bash -el {0}
