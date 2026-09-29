@@ -8,6 +8,10 @@ COPY --chown=mambauser:mambauser . .
 USER mambauser
 ENV HOME=/home/mambauser
 ENV ENV_NAME=macproqc-helpers
+# /tmp is writable regardless of which UID the container is run as (e.g. Nextflow's
+# docker.runOptions = '-u $(id -u):$(id -g)'), unlike ~/.cache which depends on $HOME being
+# owned by the runtime user.
+ENV MPLCONFIGDIR=/tmp/matplotlib
 
 RUN echo 'show_banner: false' > ~/.mambarc
 
