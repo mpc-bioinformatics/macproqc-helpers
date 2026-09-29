@@ -13,7 +13,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         "collect-metrics-from-bruker", description="Collect metrics from Bruker files."
     )
-    parser.add_argument("-d_folder", help="FeatureXML with already annotated identifications")
+    parser.add_argument("-d_folder", help="Bruker data folder (suffix `.d` is mendatory) or hdf5 file (suffix `.hdf`).")
     parser.add_argument("-out_hdf5", help="The HDF5 containing the extracted metrics")
     parser.add_argument(
         "-headers_to_parse",
