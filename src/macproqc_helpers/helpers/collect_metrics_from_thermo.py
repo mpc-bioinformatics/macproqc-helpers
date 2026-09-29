@@ -20,7 +20,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-raw", help="FeatureXML with already annotated identifications")
-    parser.add_argument("-out_hdf5", help="The Output statistics HDF5")
+    parser.add_argument("-out_hdf5", help="The HDF5 containing the extracted metrics")
     parser.add_argument(
         "-extra_headers_to_parse",
         "-ehtp",
@@ -81,16 +81,16 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
 
 def get_headers_to_parse(headers, headers_from_raw):
     """Helper function to map which header from which index should be retrieved"""
-    statistics_to_retrieve = []
+    metrics_to_retrieve = []
     for idx, h in enumerate(headers_from_raw):
         for hp in headers:
             for hp_part in hp.split(","):
                 if h.label.startswith(hp_part):
                     # Retrievable in this RAW-file
-                    statistics_to_retrieve.append((idx, hp))
+                    metrics_to_retrieve.append((idx, hp))
                     break
 
-    return statistics_to_retrieve
+    return metrics_to_retrieve
 
 
 def collect(args: argparse.Namespace) -> None:
@@ -99,13 +99,13 @@ def collect(args: argparse.Namespace) -> None:
     raw_file = RawFileReaderAdapter.file_factory(args.raw)
     raw_file.select_instrument(Device.MS, 1)  # Selecting the MS
 
-    log_statistics_to_retrieve = get_headers_to_parse(
+    log_metrics_to_retrieve = get_headers_to_parse(
         args.log_headers_to_parse, raw_file.get_status_log_header_information()
     )
-    tune_statistics_to_retrieve = get_headers_to_parse(
+    tune_metrics_to_retrieve = get_headers_to_parse(
         args.tune_headers_to_parse, raw_file.get_tune_data_header_information()
     )
-    extra_statistics_to_retrieve = get_headers_to_parse(
+    extra_metrics_to_retrieve = get_headers_to_parse(
         args.extra_headers_to_parse, raw_file.get_trailer_extra_header_information()
     )
 
@@ -115,18 +115,18 @@ def collect(args: argparse.Namespace) -> None:
         first_scan_number = raw_file.run_header_ex.first_spectrum
         last_scan_number = raw_file.run_header_ex.last_spectrum
         for scan in range(first_scan_number, last_scan_number + 1):
-            scan_statistics = raw_file.get_scan_stats_for_scan_number(scan)
-            start_time_of_scan = scan_statistics.start_time
+            scan_metrics = raw_file.get_scan_stats_for_scan_number(scan)
+            start_time_of_scan = scan_metrics.start_time
             data_dict["Scan_StartTime"].append(start_time_of_scan)
             scan_filter = raw_file.get_filter_for_scan_number(scan)
             data_dict["Scan_msLevel"].append(scan_filter.ms_order.value)
 
-            # Get Info of filtered statistics we want to track (log and extra data)
+            # Get Info of filtered metrics we want to track (log and extra data)
             log_scan_values = raw_file.get_status_log_for_retention_time(start_time_of_scan).values
-            for idx, hp in log_statistics_to_retrieve:
+            for idx, hp in log_metrics_to_retrieve:
                 data_dict["LOG_" + hp].append(log_scan_values[idx])
             extra_scan_values = raw_file.get_trailer_extra_information(scan).values
-            for idx, hp in extra_statistics_to_retrieve:
+            for idx, hp in extra_metrics_to_retrieve:
                 data_dict["EXTRA_" + hp].append(extra_scan_values[idx])
 
         if len(list(data_dict.keys())) != 0:
@@ -149,9 +149,9 @@ def collect(args: argparse.Namespace) -> None:
 
         # Tune data is one dimensional, therefore single values
         tune_scan_values = raw_file.get_tune_data(0).values
-        if len(tune_statistics_to_retrieve) != 0:
+        if len(tune_metrics_to_retrieve) != 0:
             tune_dict = dict()
-            for idx, hp in tune_statistics_to_retrieve:
+            for idx, hp in tune_metrics_to_retrieve:
                 tune_dict["TUNE_" + hp] = tune_scan_values[idx]
             column_name = list(tune_dict.keys())
             column_data = [tune_dict[x] for x in column_name]

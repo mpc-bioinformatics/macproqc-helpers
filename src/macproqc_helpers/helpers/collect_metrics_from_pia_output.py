@@ -17,7 +17,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument("--pia_peptides", help="peptides.txt from PIA output")
     parser.add_argument("--pia_proteins", help="Proteins.mzTab from PIA output")
     parser.add_argument("--pia_PSMs", help="PSM.mzTab from PIA output")
-    parser.add_argument("--out_hdf5", help="Output HDF5 with statistics")
+    parser.add_argument("--out_hdf5", help="The HDF5 containing the extracted metrics")
     parser.add_argument(
         "--store_all_infos",
         help="Store all PSMs, peptides and proteins in the HDF5 file",

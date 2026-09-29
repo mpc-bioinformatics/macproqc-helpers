@@ -17,7 +17,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-featurexml", help="FeatureXML with already annotated identifications")
-    parser.add_argument("-out_hdf5", help="The Output statistics HDF5")
+    parser.add_argument("-out_hdf5", help="The HDF5 containing the extracted metrics")
     parser.add_argument(
         "-report_up_to_charge",
         type=int,
