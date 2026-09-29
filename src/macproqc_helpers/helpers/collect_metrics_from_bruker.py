@@ -102,6 +102,12 @@ def get_calibrant_info(
 
 
 def extract(args: argparse.Namespace) -> None:
+    if not args.d_folder.endswith((".d", ".hdf")):
+        raise ValueError(
+            "'-d_folder' must be a path ending in '.d' or '.hdf' "
+            "(required by alphatims to detect the Bruker file type), got: '{}'".format(args.d_folder)
+        )
+
     con = sqlite3.connect(args.d_folder + os.sep + "analysis.tdf")
     cur = con.cursor()
 
