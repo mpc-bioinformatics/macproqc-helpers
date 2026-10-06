@@ -21,13 +21,13 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument("-mzml", help="mzML file to extract data from")
     parser.add_argument("-out_hdf5", help="The Output HDF5 file")
     parser.add_argument(
-        "-base_peak_tic_up_to",
-        required=True,
-        type=int,
-        help="Base peak TIC up to X minutes (e.g. 105)",
+        "-report_up_to_charge", required=True, type=int, help="Report up to charge (e.g. 5)"
     )
     parser.add_argument(
-        "-report_up_to_charge", required=True, type=int, help="Report up to charge (e.g. 5)"
+        "-base_peak_tic_up_to",
+        type=int,
+        default=9999,
+        help="Base peak TIC up to X minutes (default: 9999)",
     )
     parser.add_argument(
         "-ms1_map_rt_bins",
