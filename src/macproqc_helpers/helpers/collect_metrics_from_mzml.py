@@ -27,9 +27,6 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         help="Base peak TIC up to X minutes (e.g. 105)",
     )
     parser.add_argument(
-        "-filter_threshold", required=True, type=float, help="Filter threshold (e.g. 0.00001)"
-    )
-    parser.add_argument(
         "-report_up_to_charge", required=True, type=int, help="Report up to charge (e.g. 5)"
     )
     parser.add_argument(
@@ -87,7 +84,6 @@ def _freq_max_hz(rt_list, window_seconds: float = 60.0) -> float:
 
 def collect(args: argparse.Namespace) -> None:
     base_peak_tic_up_to = args.base_peak_tic_up_to
-    filter_threshold = args.filter_threshold
     report_up_to_charge = args.report_up_to_charge
     ms1_map_rt_bins = args.ms1_map_rt_bins
     ms1_map_mz_bins = args.ms1_map_mz_bins
@@ -366,8 +362,6 @@ def collect(args: argparse.Namespace) -> None:
             column_types=["float64", "float64", "float64"],
         )
 
-        BASE_PEAK_NOISE_THRESHOLD = base_peak_intensity_max * filter_threshold
-
         mzhdf5.add_table_to_hdf5(
             f=out_h5,
             qc_acc="MS:4000211",
@@ -405,8 +399,7 @@ def collect(args: argparse.Namespace) -> None:
                 rt = spectrum.getRT()
                 mz, intens = spectrum.get_peaks()
                 for m, val in zip(mz, intens):
-                    if val >= BASE_PEAK_NOISE_THRESHOLD:
-                        bilip.addValue(rt, m, val)
+                    bilip.addValue(rt, m, val)
 
             grid_np = bilip.getData().get_matrix()
             rt_step = (RT_last - RT_first) / (ms1_map_rt_bins - 1)
