@@ -7,7 +7,6 @@ import pytest
 
 from macproqc_helpers.helpers import collect_metrics_from_mzml
 
-FILTER_THRESHOLD = 0.1
 REPORT_UP_TO_CHARGE = 3
 BASE_PEAK_TIC_UP_TO = 10  # minutes
 
@@ -71,7 +70,6 @@ def _run_collect(mzml_path, tmp_path, **overrides):
         mzml=mzml_path,
         out_hdf5=str(out_hdf5),
         base_peak_tic_up_to=BASE_PEAK_TIC_UP_TO,
-        filter_threshold=FILTER_THRESHOLD,
         report_up_to_charge=REPORT_UP_TO_CHARGE,
         ms1_map_rt_bins=50,
         ms1_map_mz_bins=50,
@@ -90,7 +88,7 @@ def _reference_metrics(exp):
     ms2_rt, ms2_tic = [], []
     accumulated_ms1_tic = 0.0
     accumulated_ms2_tic = 0.0
-    raw_ms1_peaks_above_threshold = []
+    raw_ms1_peaks = []
 
     all_basepeaks = []
     for spectrum in exp.getSpectra():
@@ -108,14 +106,12 @@ def _reference_metrics(exp):
             accumulated_ms2_tic += tic
 
     base_peak_intensity_max = max(all_basepeaks)
-    threshold = base_peak_intensity_max * FILTER_THRESHOLD
     for spectrum in exp.getSpectra():
         if spectrum.getMSLevel() != 1:
             continue
         mz, intens = spectrum.get_peaks()
         for _mz, i in zip(mz, intens):
-            if i >= threshold:
-                raw_ms1_peaks_above_threshold.append(i)
+            raw_ms1_peaks.append(i)
 
     return {
         "num_ms1": len(ms1_rt),
@@ -125,7 +121,7 @@ def _reference_metrics(exp):
         "rt_first": exp.getSpectrum(0).getRT(),
         "rt_last": exp.getSpectrum(exp.getNrSpectra() - 1).getRT(),
         "base_peak_intensity_max": base_peak_intensity_max,
-        "raw_ms1_peak_sum_above_threshold": sum(raw_ms1_peaks_above_threshold),
+        "raw_ms1_peak_sum": sum(raw_ms1_peaks),
         "ms1_num_peaks": sorted(ms1_peaks),
     }
 
@@ -173,15 +169,13 @@ def test_freq_max_matches_naive_On2_reference():
     assert collect_metrics_from_mzml._freq_max_hz(list(rt)) == pytest.approx(expected)
 
 
-def test_ms1_map_conserves_total_intensity_above_threshold(small_mzml, tmp_path):
+def test_ms1_map_conserves_total_intensity(small_mzml, tmp_path):
     mzml_path, exp = small_mzml
     ref = _reference_metrics(exp)
 
     with _run_collect(mzml_path, tmp_path) as out:
         grid_intensity = out["LOCAL:rtMzIntensityMS1 ! MS1_map/intensity"][()]
-        assert grid_intensity.sum() == pytest.approx(
-            ref["raw_ms1_peak_sum_above_threshold"], rel=1e-6
-        )
+        assert grid_intensity.sum() == pytest.approx(ref["raw_ms1_peak_sum"], rel=1e-6)
         # bounded by the fixed grid size, regardless of the number of peaks in the run
         assert len(grid_intensity) <= 50 * 50
 
