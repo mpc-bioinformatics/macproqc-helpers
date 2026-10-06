@@ -175,9 +175,7 @@ def test_ms1_map_conserves_total_intensity(small_mzml, tmp_path):
 
     with _run_collect(mzml_path, tmp_path) as out:
         grid_intensity = out["LOCAL:rtMzIntensityMS1 ! MS1_map/intensity"][()]
-        assert grid_intensity.sum() == pytest.approx(
-            ref["raw_ms1_peak_sum"], rel=1e-6
-        )
+        assert grid_intensity.sum() == pytest.approx(ref["raw_ms1_peak_sum"], rel=1e-6)
         # bounded by the fixed grid size, regardless of the number of peaks in the run
         assert len(grid_intensity) <= 50 * 50
 
