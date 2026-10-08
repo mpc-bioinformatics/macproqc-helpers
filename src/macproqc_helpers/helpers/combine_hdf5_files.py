@@ -1,6 +1,6 @@
 import argparse
 import os
-from datetime import date
+from datetime import datetime, timezone
 
 import h5py
 
@@ -39,7 +39,7 @@ def write_metadata(f):
     f["METADATA"].attrs["mzQC_URL"] = (
         "https://raw.githubusercontent.com/HUPO-PSI/psi-ms-CV/321d7731f683557c5aecf6e5f7fefe049da0ecbf/psi-ms.obo"
     )
-    f["METADATA"].attrs["creation_date"] = str(date.today)
+    f["METADATA"].attrs["creation_date"] = str(datetime.now(timezone.utc).date())
 
 
 def combine(args: argparse.Namespace) -> None:
