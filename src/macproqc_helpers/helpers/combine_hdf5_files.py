@@ -1,6 +1,6 @@
 import argparse
 import os
-from datetime import date
+from datetime import datetime, timezone
 
 import h5py
 
@@ -12,12 +12,6 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-hdf_out_name", help="The output of the combined HDF5 files")
-    parser.add_argument(
-        "-put_under_subdataset",
-        default=False,
-        action="store_true",
-        help="Flag if data should be added under a subdataset",
-    )
     parser.add_argument(
         "-write_metadata",
         default=False,
@@ -45,28 +39,16 @@ def write_metadata(f):
     f["METADATA"].attrs["mzQC_URL"] = (
         "https://raw.githubusercontent.com/HUPO-PSI/psi-ms-CV/321d7731f683557c5aecf6e5f7fefe049da0ecbf/psi-ms.obo"
     )
-    f["METADATA"].attrs["creation_date"] = str(date.today)
+    f["METADATA"].attrs["creation_date"] = str(datetime.now(timezone.utc).date())
 
 
 def combine(args: argparse.Namespace) -> None:
 
-    if not args.put_under_subdataset:
-        # Write everything under "/"
-        with h5py.File(args.hdf_out_name, "w") as out_h5:
-            for hdf in args.files:
-                with h5py.File(hdf, "r") as in_h5:
-                    for obj in in_h5:
-                        in_h5.copy(obj, out_h5)
-            if args.write_metadata:
-                write_metadata(out_h5)
-    else:
-        # Write everything under "/filename/"
-        with h5py.File(args.hdf_out_name, "w") as out_h5:
-            for hdf in args.files:
-                filename = os.path.basename(hdf).split(".", 1)[0]
-                out_h5.create_group("/" + filename)
-                with h5py.File(hdf, "r") as in_h5:
-                    for obj in in_h5:
-                        in_h5.copy(obj, out_h5["/" + filename])
-            if args.write_metadata:
-                write_metadata(out_h5)
+    # Write everything under "/"
+    with h5py.File(args.hdf_out_name, "w") as out_h5:
+        for hdf in args.files:
+            with h5py.File(hdf, "r") as in_h5:
+                for obj in in_h5:
+                    in_h5.copy(obj, out_h5)
+        if args.write_metadata:
+            write_metadata(out_h5)
