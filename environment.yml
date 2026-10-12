@@ -4,11 +4,9 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.11
+  - python=3.14
   - pip
   - setuptools
-  - conda-forge::qt-main = 5.15.8     # provides libglib/libgthread that pyopenms's bundled Qt5 libs need at runtime
   - conda-forge::mono ~= 6.12
-  - conda-forge::compilers = 1.8.0
   - pip:
     - -e .

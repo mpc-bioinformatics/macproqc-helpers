@@ -158,7 +158,7 @@ def collect(args: argparse.Namespace) -> None:
             rt = spectrum.getRT()
             mz, intens = spectrum.get_peaks()
             npeaks = len(intens)
-            tic_i = sum(intens)
+            tic_i = float(np.sum(intens, dtype=np.float64))
             basepeak_i = max(intens) if npeaks != 0 else 0
 
             ms1_ms2_rt.append(rt)
