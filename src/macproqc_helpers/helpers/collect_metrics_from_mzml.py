@@ -150,7 +150,7 @@ def collect(args: argparse.Namespace) -> None:
         accumulated_ms2_tic = 0.0
         mz_min = math.inf
         mz_max = -math.inf
-        last_rt = None
+        last_rt: float | None = None
 
         for i in range(n_spectra):
             spectrum = exp.getSpectrum(i)
@@ -270,7 +270,8 @@ def collect(args: argparse.Namespace) -> None:
 
         # Range of the retention time (first and last spectrum)
         RT_first = exp.getSpectrum(0).getRT()
-        RT_last = last_rt
+        # last_RT can only be None if no spectrum with RT was read in
+        RT_last: float = last_rt if last_rt is not None else 0.0
         RT_range = [RT_first, RT_last]
 
         mzhdf5.add_entry_to_hdf5(
@@ -401,7 +402,8 @@ def collect(args: argparse.Namespace) -> None:
                 for m, val in zip(mz, intens):
                     bilip.addValue(rt, m, val)
 
-            grid_np = bilip.getData().get_matrix()
+            # get_matrix() returns an ndarray but is typed as `object` in the pyopenms stubs -> asarray (no copy) gives it a usable type
+            grid_np = np.asarray(bilip.getData().get_matrix())
             rt_step = (RT_last - RT_first) / (ms1_map_rt_bins - 1)
             mz_step = (mz_max - mz_min) / (ms1_map_mz_bins - 1)
             row_idx, col_idx = np.nonzero(grid_np)
