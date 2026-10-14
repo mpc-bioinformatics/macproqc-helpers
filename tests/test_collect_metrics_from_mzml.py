@@ -19,6 +19,7 @@ def _make_spectrum(rt, ms_level, mzs, intensities, precursor_mz=None, precursor_
         (np.asarray(mzs, dtype=np.float64), np.asarray(intensities, dtype=np.float64))
     )
     if ms_level == 2:
+        assert precursor_mz is not None and precursor_charge is not None
         precursor = pyopenms.Precursor()
         precursor.setMZ(precursor_mz)
         precursor.setCharge(precursor_charge)
