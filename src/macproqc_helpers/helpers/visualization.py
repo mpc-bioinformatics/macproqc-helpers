@@ -129,16 +129,13 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         "-output", help="Output folder for the plots as json files.", default="graphics"
     )
     parser.add_argument(
-        "-output_table_type", help="Type of output table (one of csv, tsv or xlsx)", default="csv"
+        "-output_table_type", help="Type of output table (one of tsv, csv or xlsx)", default="tsv"
     )
     parser.add_argument(
         "-figure_format",
         help="Type of output figures (one or more of html and plotly)",
         default="plotly",
     )  # "html,ploty" for both
-    parser.add_argument(
-        "-spikeins", help="Whether to analyse spike-ins", default=False, action="store_true"
-    )
     parser.add_argument(
         "-group", help="List of the experimental group (comma-separated).", default=None
     )  ### TODO: input table with group information
@@ -148,14 +145,27 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         default="sec",
     )
     parser.add_argument(
-        "-fig_show", help="Show figures, e.g. for debugging?", default=False, action="store_true"
+        "-fig_show",
+        help=(
+            "Debugging only: additionally display every figure before saving it (plotly figures "
+            "as static PNGs, which requires 'kaleido' and an IPython/Jupyter session; matplotlib "
+            "ion maps via the active matplotlib backend)."
+        ),
+        default=False,
+        action="store_true",
     )
     parser.add_argument(
         "-output_column_order", help="Order of columns in the output table", default=None, type=str
     )
     parser.add_argument(
+        "-spike_ins_table", help="Path to the spike-ins table file", default=None, type=str
+    )
+    parser.add_argument(
         "-spikein_columns",
-        help="Columns of the spike-in dataframes that should end up in the result table",
+        help=(
+            "Columns of the spike-in dataframes that should end up in the result table "
+            "(comma-separated; pass an empty string to keep all columns)"
+        ),
         default="MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT",
         type=str,
     )
@@ -176,9 +186,6 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     )
     parser.add_argument(
         "-width_ionmaps", help="Width of the ionmaps in inches", default=10, type=int
-    )
-    parser.add_argument(
-        "-spike_ins_table", help="Path to the spike-ins table file", default=None, type=str
     )
     parser.add_argument(
         "-metric_registry_file",
@@ -262,6 +269,9 @@ def _process_group_metrics(
         "PSM_charge_fractions": ("charge state", None),
         "PSM_missed_cleavages_fractions": ("number of missed cleavages", None),
     }
+
+    # empty `-spikein_columns` -> keep every column of the spike-in dataframe
+    spikein_columns = [c.strip() for c in args.spikein_columns.split(",") if c.strip()] or None
 
     standalone_figures = [
         (
@@ -419,7 +429,13 @@ def _process_group_metrics(
         if metric in metric_list or metric in pca_raw_metrics or metric in pca_all_metrics:
             try:
                 col_frame = _build_metric_columns(
-                    metric, metric_type, data, hdf5_file_names, args.RT_unit, args.spike_ins_table
+                    metric,
+                    metric_type,
+                    data,
+                    hdf5_file_names,
+                    args.RT_unit,
+                    args.spike_ins_table,
+                    spikein_columns,
                 )
             except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
                 logger.warning(
@@ -465,6 +481,7 @@ def _process_group_metrics(
                         hdf5_file_names,
                         args.RT_unit,
                         args.spike_ins_table,
+                        spikein_columns,
                     )
                 except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
                     logger.warning(

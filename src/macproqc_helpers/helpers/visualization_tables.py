@@ -103,16 +103,19 @@ def _build_spike_in_table(
     dataframes: Dict[str, pd.DataFrame],
     RT_unit: str,
     spike_ins_table: Optional[str],
+    spikein_columns: Optional[List[str]] = None,
 ) -> pd.DataFrame:
     """Turn the "spike_in_metrics" dataframe metric (one row per spike-in
     peptide, per file) into one row per file with columns named
-    "{spike_in_name}_{original_column}" for every original column (plus the
-    derived "Delta_to_expected_RT"). The spike-in name used as the column
-    prefix is either taken from `spike_ins_table` (a CSV with a "name"
-    column, in the same row order as the per-file data) if provided, or
-    falls back to the peptide's own "proforma peptidoform sequence". Files
-    missing the metric get a row of NaN for every column seen across all
-    files."""
+    "{spike_in_name}_{original_column}" for every column in `spikein_columns`
+    (in that order; may include the derived "Delta_to_expected_RT"), or for
+    every original column plus "Delta_to_expected_RT" if `spikein_columns` is
+    None. Requested columns missing from a file's data are skipped with a
+    warning. The spike-in name used as the column prefix is either taken from
+    `spike_ins_table` (a CSV with a "name" column, in the same row order as
+    the per-file data) if provided, or falls back to the peptide's own
+    "proforma peptidoform sequence". Files missing the metric get a row of
+    NaN for every column seen across all files."""
     per_file_rows: Dict[str, Dict[str, Any]] = {}
 
     for file, spike_data in dataframes.items():
@@ -139,7 +142,19 @@ def _build_spike_in_table(
             else:
                 spike_in_list = spike_data["proforma peptidoform sequence"].astype(str).tolist()
 
-            value_columns = spike_data.columns.to_list()
+            if spikein_columns is None:
+                value_columns = spike_data.columns.to_list()
+            else:
+                missing = [c for c in spikein_columns if c not in spike_data.columns]
+                if missing:
+                    logger.warning(
+                        "Requested spike-in column(s) %s not found in metric 'spike_in_metrics' for file '%s'; skipping them.",
+                        ", ".join(f"'{c}'" for c in missing),
+                        file,
+                    )
+                value_columns = [c for c in spikein_columns if c in spike_data.columns]
+                if not value_columns:
+                    raise ValueError("none of the requested spike-in columns are present")
 
             row_values: Dict[str, Any] = {}
             for idx in range(len(spike_data)):
@@ -208,6 +223,7 @@ def _build_metric_columns(
     hdf5_file_names: List[str],
     RT_unit: str,
     spike_ins_table: Optional[str],
+    spikein_columns: Optional[List[str]] = None,
 ) -> pd.DataFrame:
     """Build the column(s) for one already-fetched group ('array' or
     'dataframe' type) metric, one row per file (in `hdf5_file_names` order).
@@ -261,7 +277,9 @@ def _build_metric_columns(
             return pd.DataFrame({metric: values})
 
         if metric == "spike_in_metrics":
-            return _build_spike_in_table(hdf5_file_names, data, RT_unit, spike_ins_table)
+            return _build_spike_in_table(
+                hdf5_file_names, data, RT_unit, spike_ins_table, spikein_columns
+            )
 
         return _build_wide_from_dataframes(metric, hdf5_file_names, data)
 
