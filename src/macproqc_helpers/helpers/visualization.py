@@ -137,9 +137,6 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         default="plotly",
     )  # "html,ploty" for both
     parser.add_argument(
-        "-spikeins", help="Whether to analyse spike-ins", default=False, action="store_true"
-    )
-    parser.add_argument(
         "-group", help="List of the experimental group (comma-separated).", default=None
     )  ### TODO: input table with group information
     parser.add_argument(
