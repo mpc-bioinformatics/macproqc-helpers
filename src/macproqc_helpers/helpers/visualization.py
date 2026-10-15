@@ -151,6 +151,9 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         "-output_column_order", help="Order of columns in the output table", default=None, type=str
     )
     parser.add_argument(
+        "-spike_ins_table", help="Path to the spike-ins table file", default=None, type=str
+    )
+    parser.add_argument(
         "-spikein_columns",
         help=(
             "Columns of the spike-in dataframes that should end up in the result table "
@@ -176,9 +179,6 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     )
     parser.add_argument(
         "-width_ionmaps", help="Width of the ionmaps in inches", default=10, type=int
-    )
-    parser.add_argument(
-        "-spike_ins_table", help="Path to the spike-ins table file", default=None, type=str
     )
     parser.add_argument(
         "-metric_registry_file",
