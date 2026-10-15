@@ -145,7 +145,14 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         default="sec",
     )
     parser.add_argument(
-        "-fig_show", help="Show figures, e.g. for debugging?", default=False, action="store_true"
+        "-fig_show",
+        help=(
+            "Debugging only: additionally display every figure before saving it (plotly figures "
+            "as static PNGs, which requires 'kaleido' and an IPython/Jupyter session; matplotlib "
+            "ion maps via the active matplotlib backend)."
+        ),
+        default=False,
+        action="store_true",
     )
     parser.add_argument(
         "-output_column_order", help="Order of columns in the output table", default=None, type=str
