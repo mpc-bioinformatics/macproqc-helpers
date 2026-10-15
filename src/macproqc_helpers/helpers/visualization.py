@@ -152,7 +152,10 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     )
     parser.add_argument(
         "-spikein_columns",
-        help="Columns of the spike-in dataframes that should end up in the result table",
+        help=(
+            "Columns of the spike-in dataframes that should end up in the result table "
+            "(comma-separated; pass an empty string to keep all columns)"
+        ),
         default="MS1 feature maximum intensity,retention time,count of identified spectra,Delta_to_expected_RT",
         type=str,
     )
@@ -259,6 +262,9 @@ def _process_group_metrics(
         "PSM_charge_fractions": ("charge state", None),
         "PSM_missed_cleavages_fractions": ("number of missed cleavages", None),
     }
+
+    # empty `-spikein_columns` -> keep every column of the spike-in dataframe
+    spikein_columns = [c.strip() for c in args.spikein_columns.split(",") if c.strip()] or None
 
     standalone_figures = [
         (
@@ -416,7 +422,13 @@ def _process_group_metrics(
         if metric in metric_list or metric in pca_raw_metrics or metric in pca_all_metrics:
             try:
                 col_frame = _build_metric_columns(
-                    metric, metric_type, data, hdf5_file_names, args.RT_unit, args.spike_ins_table
+                    metric,
+                    metric_type,
+                    data,
+                    hdf5_file_names,
+                    args.RT_unit,
+                    args.spike_ins_table,
+                    spikein_columns,
                 )
             except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
                 logger.warning(
@@ -462,6 +474,7 @@ def _process_group_metrics(
                         hdf5_file_names,
                         args.RT_unit,
                         args.spike_ins_table,
+                        spikein_columns,
                     )
                 except Exception as exc:  # noqa: BLE001 - intentionally broad, see module docstring
                     logger.warning(
