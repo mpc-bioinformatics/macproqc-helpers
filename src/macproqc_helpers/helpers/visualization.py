@@ -129,7 +129,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         "-output", help="Output folder for the plots as json files.", default="graphics"
     )
     parser.add_argument(
-        "-output_table_type", help="Type of output table (one of csv, tsv or xlsx)", default="csv"
+        "-output_table_type", help="Type of output table (one of tsv, csv or xlsx)", default="tsv"
     )
     parser.add_argument(
         "-figure_format",
