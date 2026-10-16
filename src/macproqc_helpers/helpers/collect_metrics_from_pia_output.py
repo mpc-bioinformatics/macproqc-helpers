@@ -1,5 +1,6 @@
 import argparse
 import io
+import math
 
 import h5py
 import numpy as np
@@ -122,6 +123,17 @@ def parse_protein_infos(pia_proteins_mztab: str, out_hdf5: h5py.File):
         "UO:0000189",
         "count unit",
     )
+
+
+def stable_mean_std(values):
+    """Caclulates the mean/std, independent of value order and platform. The used functions should take care of numerical stability issues."""
+    vals = [float(v) for v in values]
+    n = len(vals)
+    if n == 0:
+        return np.nan, np.nan
+    mean = math.fsum(vals) / n
+    std = math.sqrt(math.fsum((v - mean) ** 2 for v in vals) / n)
+    return mean, std
 
 
 def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bool = False):
@@ -282,6 +294,8 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         unit_name="parts per million",
     )
 
+    stable_mean, stable_std = stable_mean_std(ppm_error)
+
     mzhdf5.add_entry_to_hdf5(
         f=out_hdf5,
         qc_acc="MS:4000178",
@@ -290,7 +304,7 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         qc_description=(
             "The mean of the distribution of observed precursor mass accuracies (MS:4000072) [in ppm] of identified MS2 spectra after user-defined acceptance criteria (FDR) are applied."
         ),
-        value=np.mean(ppm_error),
+        value=stable_mean,
         value_shape=(1,),
         value_type="float64",
         unit_accession="UO:0000169",
@@ -305,7 +319,7 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         qc_description=(
             "The standard deviation of the distribution of observed precursor mass accuracies (MS:4000072) [in ppm] of identified MS2 spectra after user-defined acceptance criteria (FDR) are applied."
         ),
-        value=np.std(ppm_error),
+        value=stable_std,
         value_shape=(1,),
         value_type="float64",
         unit_accession="UO:0000169",
