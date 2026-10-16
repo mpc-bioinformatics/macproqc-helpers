@@ -53,6 +53,16 @@ def _skip_file_on_error(step_name: str, file_label: str):
         )
 
 
+def _only_nan(values) -> bool:
+    """True if `values` holds no usable number: empty, or NaN only (the
+    collectors write a single NaN row when a metric was not recorded)."""
+    try:
+        arr = np.asarray(values, dtype=float)
+    except (TypeError, ValueError):
+        return False
+    return arr.size == 0 or bool(np.isnan(arr).all())
+
+
 def make_empty_figure(
     message: str, width: int = 1500, height: int = 1000, title: str = "Empty Plot"
 ) -> go.Figure:
@@ -138,13 +148,15 @@ def plot_tic_overlay(
     frames = []
     for fname, df in dataframes.items():
         with _skip_file_on_error("fig04", fname):
+            if _only_nan(df["total ion current"]):
+                logger.info("fig04: no TIC values in file '%s'; file skipped.", fname)
+                continue
             df = df.copy()
             df["filename"] = fname
             frames.append(df)
 
     if not frames:
-        fig = make_empty_figure("Metric 'MS1_TIC' not available!", title=title)
-        save_figure(fig, output_path, "fig04_MS1_TIC_overlay", args)
+        logger.warning("fig04: no TIC values in any file; figure skipped.")
         return
 
     tic_df = pd.concat(frames, ignore_index=True)
@@ -419,11 +431,17 @@ def plot_pump_pressure(
             continue
         with _skip_file_on_error("fig14", fname):
             df = dataframes[fname]
+            if _only_nan(df["pressure unit"]):
+                logger.info("fig14: no pump pressure recorded in file '%s'; file skipped.", fname)
+                continue
             if df.shape[0] > 10000:
                 samples = int(df.shape[0] / 10000)
                 df = df.iloc[range(0, df.shape[0], samples)]
             frames.append(df.assign(filename=fname))
 
+    if not frames and dataframes:
+        logger.warning("fig14: no pump pressure recorded in any file; figure skipped.")
+        return
     if not frames:
         fig = make_empty_figure("No Pump Pressure data available!", title=title)
         save_figure(fig, output_path, "fig14_Pump_pressure", args)
@@ -634,24 +652,31 @@ def plot_additional_headers(
                         y_tmp = y_tmp[ms_level == 1]
                         x_tmp = x_tmp[ms_level == 1]
 
+                if _only_nan(y_tmp):
+                    logger.info(
+                        "fig16: no values for '%s' in file '%s'; file skipped.",
+                        display_header,
+                        fname,
+                    )
+                    continue
+
                 rows_x.extend(float(v) for v in x_tmp)
                 rows_y.extend(float(v) for v in y_tmp)
                 rows_fn.extend([fname] * len(x_tmp))
 
         df_tmp = pd.DataFrame({"filename": rows_fn, "x": rows_x, "y": rows_y})
+        if df_tmp.empty:
+            logger.warning("fig16: no values for '%s' in any file; figure skipped.", display_header)
+            continue
+
+        fig = px.line(df_tmp, x="x", y="y", color="filename", title=display_header)
+        fig.update_traces(line=dict(width=0.5))
+        fig.update_yaxes(exponentformat="E")
+        _apply_barplot_layout(fig, args)
+        fig.update_layout(yaxis_title=display_header)
+        fig.update_layout(xaxis_title="Time (sec)" if args.RT_unit == "sec" else "Time (min)")
 
         basename = os.path.join("fig16_additional_headers", re.sub(r"\W+", "", display_header))
-
-        if not df_tmp.empty:
-            fig = px.line(df_tmp, x="x", y="y", color="filename", title=display_header)
-            fig.update_traces(line=dict(width=0.5))
-            fig.update_yaxes(exponentformat="E")
-            _apply_barplot_layout(fig, args)
-            fig.update_layout(yaxis_title=display_header)
-            fig.update_layout(xaxis_title="Time (sec)" if args.RT_unit == "sec" else "Time (min)")
-        else:
-            fig = make_empty_figure(f"No '{display_header}' available!", title="Empty Plot")
-
         save_figure(fig, output_path, basename, args)
 
 
@@ -672,10 +697,14 @@ def plot_bruker_calibrants(
     frames = []
     for fname, df in dataframes.items():
         with _skip_file_on_error("fig17", fname):
+            if _only_nan(df["observed_calibrant_mz"]):
+                logger.info("fig17: no calibrant values in file '%s'; file skipped.", fname)
+                continue
             df = df.copy()
             df["filename"] = fname
             frames.append(df)
     if not frames:
+        logger.warning("fig17: no calibrant values in any file; figures skipped.")
         return
     df_calibrants = pd.concat(frames, ignore_index=True)
     calibrants = df_calibrants[["calibrant_mz", "calibrant_mobility"]].drop_duplicates()
