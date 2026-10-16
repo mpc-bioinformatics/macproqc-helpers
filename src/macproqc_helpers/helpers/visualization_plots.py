@@ -598,11 +598,10 @@ def plot_additional_headers(
         wanted = file_headers + [time_header] + (["Scan_msLevel"] if needs_ms1_filter else [])
         with _skip_file_on_error("fig16", fname):
             values = read_group_columns(path, full_key_by_file[fname], wanted)
-            if values[time_header] is not None:
-                values[time_header] = (
-                    values[time_header].astype(float) * time_headers[time_header] * to_rt_unit
-                )
-            values["__time__"] = values.pop(time_header)
+            time_values = values.pop(time_header)
+            if time_values is not None:
+                time_values = time_values.astype(float) * time_headers[time_header] * to_rt_unit
+            values["__time__"] = time_values
             data_by_file[fname] = values
 
     for header in plot_headers:
