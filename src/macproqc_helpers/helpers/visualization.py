@@ -143,6 +143,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument(
         "-RT_unit",
         help="Unit of the retention time, either sec for seconds or min for minutes.",
+        choices=["sec", "min"],
         default="sec",
     )
     parser.add_argument(
