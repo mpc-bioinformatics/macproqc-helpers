@@ -114,6 +114,18 @@ def read_dataframe_metric_single_file(hdf5_path: str, full_key: str) -> Optional
         return _dataframe_from_group(hdf[full_key])
 
 
+def find_full_key(hdf5_path: str, short_name: str) -> Optional[str]:
+    """Return the full HDF5 key ('ACC ! short_name') of metric `short_name` in
+    a single file, or None if absent. Used where the accession part differs
+    between files (e.g. 'THERMO ! Extracted_Headers' vs. 'BRUKER ! ...'), so
+    the registry's single `example_full_key` does not fit every file."""
+    with h5py.File(hdf5_path, "r") as hdf:
+        for key in hdf.keys():
+            if _short_name(key) == short_name:
+                return key
+    return None
+
+
 def list_group_columns(hdf5_path: str, full_key: str) -> List[str]:
     """Return the short column names available in a dataframe/group metric
     for a single file, without reading any actual data."""

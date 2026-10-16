@@ -94,11 +94,13 @@ from macproqc_helpers.helpers.visualization_registry import (
     metrics_with_flag,
 )
 from macproqc_helpers.helpers.visualization_tables import (
+    NON_CATEGORY_DATAFRAME_METRICS,
     _build_hdf5_feature_table,
     _build_metric_columns,
     build_filename_column,
     build_single_value_column,
     relabel_category_extremes,
+    zero_fill_present_files,
 )
 
 logger = logging.getLogger(__name__)
@@ -388,7 +390,7 @@ def _process_group_metrics(
             ),
         ),
         (
-            "Calibrants",
+            "bruker_calibrants",
             lambda data: _run_figure_step("fig17", plot_bruker_calibrants, data, args, output_path),
         ),
     ]
@@ -489,6 +491,11 @@ def _process_group_metrics(
                     )
                     pca_col_frame = pd.DataFrame({metric: [np.nan] * len(hdf5_file_names)})
 
+            if metric_type == TYPE_DATAFRAME and metric not in NON_CATEGORY_DATAFRAME_METRICS:
+                # a category missing in a file that HAS the metric really is 0 (e.g. no
+                # charge-5 precursors); only files lacking the metric entirely stay NaN
+                pca_col_frame = zero_fill_present_files(pca_col_frame, hdf5_file_names, data)
+
             if metric in pca_raw_metrics:
                 pca_raw_columns[metric] = pca_col_frame
             if metric in pca_all_metrics:
@@ -547,9 +554,9 @@ def visualize(args: argparse.Namespace) -> None:
 
     if thermo_files and bruker_files:
         logger.warning(
-            "You have files from both Thermo and Bruker machines. Direct comparison is not possible, no plots will be created."
+            "You have files from both Thermo and Bruker machines. Vendor-specific metrics will be NA "
+            "for files lacking them, and the PCA only uses features present in all files."
         )
-        sys.exit(0)
 
     hdf5_files = [f for f in args.hdf5_files if f not in empty_files]
     if not hdf5_files:

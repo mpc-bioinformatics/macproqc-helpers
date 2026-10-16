@@ -25,6 +25,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 from macproqc_helpers.helpers.visualization_io import (
+    find_full_key,
     list_group_columns,
     read_dataframe_metric_single_file,
     read_group_columns,
@@ -257,19 +258,33 @@ def run_pca_and_plot(
     `df_features` is the already-assembled feature table (one row per file,
     in `hdf5_file_names` order), built by the caller (see `visualization.py`'s
     `_process_group_metrics`)."""
-    if len(hdf5_file_names) <= 1:
-        fig = make_empty_figure(
-            "PCA cannot be computed using only one sample!",
-            width=int(args.width_pca),
-            height=int(args.height_pca),
-        )
+
+    def _write_empty_pca(message: str) -> None:
+        fig = make_empty_figure(message, width=int(args.width_pca), height=int(args.height_pca))
         save_figure(fig, output_path, scatter_basename, args)
         save_figure(fig, output_path, loadings_basename, args)
         loadings = pd.DataFrame(columns=["variable", "length", "PC1", "PC2"])
         _write_table(loadings, output_path, loadings_table_basename, args.output_table_type)
+
+    if len(hdf5_file_names) <= 1:
+        _write_empty_pca("PCA cannot be computed using only one sample!")
         return
 
-    df_features = df_features.fillna(value=0)
+    # only use features present in all files (e.g. mixed Thermo/Bruker runs)
+    incomplete = df_features.columns[df_features.isna().any()].tolist()
+    if incomplete:
+        logger.warning(
+            "%s: dropping %d feature(s) not available in all files: %s",
+            title,
+            len(incomplete),
+            ", ".join(map(str, incomplete)),
+        )
+        df_features = df_features.drop(columns=incomplete)
+    if df_features.shape[1] < 2:
+        logger.warning("%s: fewer than 2 features common to all files; PCA skipped.", title)
+        _write_empty_pca("Not enough features common to all files for PCA!")
+        return
+
     df_scaled = pd.DataFrame(StandardScaler().fit_transform(df_features))
 
     pca = PCA(n_components=2)
@@ -511,17 +526,35 @@ def plot_additional_headers(
         )
         save_figure(fig, output_path, placeholder_basename, args)
         return
-    full_key = entry["example_full_key"]
 
+    # The key's accession and the time header + its unit differ per vendor, so
+    # resolve them per file: Thermo 'Scan_StartTime' is in minutes, Bruker 'Time'
+    # in seconds.
+    time_headers = {"Scan_StartTime": 60.0, "Time": 1.0}  # header -> factor to seconds
+    full_key_by_file: Dict[str, str] = {}
     columns_by_file: Dict[str, List[str]] = {}
+    time_header_by_file: Dict[str, str] = {}
     all_headers: set = set()
     for path in hdf5_paths:
         fname = Path(path).stem
         with _skip_file_on_error("fig16", fname):
+            full_key = find_full_key(path, "Extracted_Headers")
+            if full_key is None:
+                continue
             cols = list_group_columns(path, full_key)
             if cols:
+                full_key_by_file[fname] = full_key
                 columns_by_file[fname] = cols
                 all_headers.update(cols)
+                time_header = next((h for h in time_headers if h in cols), None)
+                if time_header is None:
+                    logger.warning(
+                        "No time header found in the extracted headers of file '%s'; "
+                        "skipping it for the additional-header plots.",
+                        fname,
+                    )
+                else:
+                    time_header_by_file[fname] = time_header
 
     if not all_headers:
         logger.warning(
@@ -533,13 +566,7 @@ def plot_additional_headers(
         save_figure(fig, output_path, placeholder_basename, args)
         return
 
-    time_header = None
-    if "Time" in all_headers:
-        time_header = "Time"  # Bruker
-    if "Scan_StartTime" in all_headers:
-        time_header = "Scan_StartTime"  # Thermo
-
-    if time_header is None:
+    if not time_header_by_file:
         logger.warning(
             "No time header found in the extracted headers, cannot plot additional headers!"
         )
@@ -549,24 +576,34 @@ def plot_additional_headers(
         save_figure(fig, output_path, placeholder_basename, args)
         return
 
-    skip_headers = {time_header, "MsMsType", "Scan_msLevel"}
+    skip_headers = set(time_headers) | {"MsMsType", "Scan_msLevel"}
     plot_headers = sorted(h for h in all_headers if h not in skip_headers)
     ms1_filtered_headers = {
         "EXTRA_Ion Injection Time (ms)",
         "EXTRA_LM mz-Correction (ppm),LM Correction",
     }
     needs_ms1_filter = any(h in ms1_filtered_headers for h in plot_headers)
+    # factor converting seconds into the requested RT unit
+    to_rt_unit = 1.0 if args.RT_unit == "sec" else 1.0 / 60.0
 
-    # Read every needed column for each file once (file-outer, header-inner).
+    # Read every needed column for each file once (file-outer, header-inner);
+    # the file's time column is converted to the requested RT unit right away.
     data_by_file: Dict[str, Dict[str, Optional[np.ndarray]]] = {}
     for path in hdf5_paths:
         fname = Path(path).stem
+        time_header = time_header_by_file.get(fname)
         file_headers = [h for h in plot_headers if h in columns_by_file.get(fname, [])]
-        if not file_headers:
+        if time_header is None or not file_headers:
             continue
         wanted = file_headers + [time_header] + (["Scan_msLevel"] if needs_ms1_filter else [])
         with _skip_file_on_error("fig16", fname):
-            data_by_file[fname] = read_group_columns(path, full_key, wanted)
+            values = read_group_columns(path, full_key_by_file[fname], wanted)
+            if values[time_header] is not None:
+                values[time_header] = (
+                    values[time_header].astype(float) * time_headers[time_header] * to_rt_unit
+                )
+            values["__time__"] = values.pop(time_header)
+            data_by_file[fname] = values
 
     for header in plot_headers:
         # Ion injection time and lock mass correction should be filtered to only contain values for MS1 spectra
@@ -576,7 +613,7 @@ def plot_additional_headers(
         rows_x, rows_y, rows_fn = [], [], []
         for fname, values in data_by_file.items():
             with _skip_file_on_error(f"fig16:{display_header}", fname):
-                y_tmp, x_tmp = values.get(header), values.get(time_header)
+                y_tmp, x_tmp = values.get(header), values.get("__time__")
                 if y_tmp is None or x_tmp is None:
                     continue
 
@@ -591,8 +628,6 @@ def plot_additional_headers(
                 rows_fn.extend([fname] * len(x_tmp))
 
         df_tmp = pd.DataFrame({"filename": rows_fn, "x": rows_x, "y": rows_y})
-        if args.RT_unit == "sec":
-            df_tmp["x"] = df_tmp["x"] * 60
 
         basename = os.path.join("fig16_additional_headers", re.sub(r"\W+", "", display_header))
 
@@ -614,9 +649,9 @@ def plot_bruker_calibrants(
 ) -> None:
     """fig17: Bruker-only calibrant m/z and ion-mobility traces over time,
     one pair of plots per calibrant. `dataframes` is the already-fetched
-    'Calibrants' metric (read once by the caller, only when present in the
-    registry - Calibrants is Bruker-only, so it's silently absent - no plots
-    produced - for Thermo data)."""
+    'bruker_calibrants' metric (read once by the caller, only when present in
+    the registry - it is Bruker-only, so files lacking it (Thermo data) are
+    simply not part of `dataframes`, and no plots are produced if none has it)."""
     subfolder = os.path.join(output_path, "fig17_BRUKER_calibrants")
     os.makedirs(subfolder, exist_ok=True)
 
