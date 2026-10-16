@@ -321,7 +321,12 @@ def run_pca_and_plot(
     loadings = pd.DataFrame(pca.components_.T, columns=["PC1", "PC2"], index=df_features.columns)
     loadings.insert(0, "length", np.sqrt(loadings["PC1"] ** 2 + loadings["PC2"] ** 2))
     loadings.insert(0, "variable", loadings.index)
-    loadings.sort_values("length", ascending=False, inplace=True)
+    # fully determined order (ties broken by PC1, PC2 and name), so the table is reproducible
+    loadings.sort_values(
+        ["length", "PC1", "PC2", "variable"],
+        ascending=[False, False, False, True],
+        inplace=True,
+    )
     fig_loadings = px.scatter(
         loadings,
         x="PC1",
