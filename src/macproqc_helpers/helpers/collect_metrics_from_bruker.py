@@ -266,7 +266,7 @@ def extract(args: argparse.Namespace) -> None:
 
             mzhdf5.add_table_to_hdf5(
                 f=out_h5,
-                qc_acc="BRUKE_calibrants",
+                qc_acc="BRUKER_calibrants",
                 qc_short_name="bruker_calibrants",
                 qc_name="Bruker calibrant information",
                 qc_description=(
