@@ -729,7 +729,7 @@ def visualize(args: argparse.Namespace) -> None:
         output_path,
         "fig12a_PCA_all",
         "fig12b_Loadings_all",
-        "fig12c_table_loadings_raw",
+        "fig12c_table_loadings_all",
     )
 
     ##########################################################################################
