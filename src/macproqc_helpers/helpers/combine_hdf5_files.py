@@ -7,7 +7,7 @@ import h5py
 def argparse_setup(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         "combine-hdf5",
-        description="Combine multiple HDF5 files into one. The files should be in the same format (e.g. all mzQC or all McQuaC output).",
+        description="Combine multiple HDF5 files into one. The files should be in the same format (e.g. all mzQC or all macproqc output).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-hdf_out_name", help="The output of the combined HDF5 files")
