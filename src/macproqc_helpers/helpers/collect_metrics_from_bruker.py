@@ -97,7 +97,8 @@ def get_calibrant_info(
         .idxmax()["intensity_values"]
     ]
 
-    calibrant_values_rts = np.array(calibrant_values.index)
+    # retention times in seconds
+    calibrant_values_rts = np.array(calibrant_values["rt_values"])
     calibrant_values_mzs = np.array(calibrant_values["mz_values"])
     calibrant_values_mobilities = np.array(calibrant_values["mobility_values"])
 
