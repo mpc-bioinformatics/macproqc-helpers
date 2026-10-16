@@ -94,7 +94,6 @@ from macproqc_helpers.helpers.visualization_registry import (
     metrics_with_flag,
 )
 from macproqc_helpers.helpers.visualization_tables import (
-    NON_CATEGORY_DATAFRAME_METRICS,
     _build_hdf5_feature_table,
     _build_metric_columns,
     build_filename_column,
@@ -263,9 +262,12 @@ def _process_group_metrics(
     metric name -> column-DataFrame, not yet concatenated/ordered; the
     caller assembles the final tables via `_assemble_table`.
     """
-    # For these metrics, the PCA feature columns use `relabel_category_extremes`
-    # (category_col, replace_zero_with) on top of the raw per-file data, while
-    # `00_table_summary` uses the raw values unchanged.
+    # The category-fraction metrics (one column per category). For these, the PCA
+    # feature columns use `relabel_category_extremes` (category_col, replace_zero_with)
+    # on top of the raw per-file data, and categories missing in a file that has the
+    # metric are zero-filled (see `zero_fill_present_files`), while `00_table_summary`
+    # uses the raw values unchanged. Only metrics listed here get zero-filled, any
+    # other (e.g. time-series) metric keeps its NaN values.
     pca_category_relabel = {
         "MS2_prec_charge_fraction": ("charge state", "Unknown"),
         "PSM_charge_fractions": ("charge state", None),
@@ -491,7 +493,7 @@ def _process_group_metrics(
                     )
                     pca_col_frame = pd.DataFrame({metric: [np.nan] * len(hdf5_file_names)})
 
-            if metric_type == TYPE_DATAFRAME and metric not in NON_CATEGORY_DATAFRAME_METRICS:
+            if metric in pca_category_relabel:
                 # a category missing in a file that HAS the metric really is 0 (e.g. no
                 # charge-5 precursors); only files lacking the metric entirely stay NaN
                 pca_col_frame = zero_fill_present_files(pca_col_frame, hdf5_file_names, data)

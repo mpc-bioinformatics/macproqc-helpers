@@ -18,15 +18,6 @@ from macproqc_helpers.helpers.visualization_registry import TYPE_ARRAY, TYPE_DAT
 
 logger = logging.getLogger(__name__)
 
-# Dataframe metrics NOT turned into one column per category by
-# `_build_wide_from_dataframes` (see `_build_metric_columns`), so a NaN in a
-# file that has the metric is a genuinely missing value, not a 0 fraction.
-NON_CATEGORY_DATAFRAME_METRICS = {
-    "base_peak_intensity_maxima_per_time_range",
-    "total_ion_current_maxima_per_time_ranges",
-    "spike_in_metrics",
-}
-
 
 def _sort_key(value: Any):
     try:
