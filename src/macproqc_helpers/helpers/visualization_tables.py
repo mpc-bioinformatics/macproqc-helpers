@@ -128,7 +128,9 @@ def _build_spike_in_table(
     `spike_ins_table` (a CSV with a "name" column, in the same row order as
     the per-file data) if provided, or falls back to the peptide's own
     "proforma peptidoform sequence". Files missing the metric get a row of
-    NaN for every column seen across all files."""
+    NaN for every column seen across all files. Spike-ins without any XIC
+    signal (retention time -1) get NaN as retention time and
+    "Delta_to_expected_RT"."""
     per_file_rows: Dict[str, Dict[str, Any]] = {}
 
     for file, spike_data in dataframes.items():
@@ -136,6 +138,9 @@ def _build_spike_in_table(
             continue
         try:
             spike_data = spike_data.copy()
+
+            # a negative retention time (-1) marks a spike-in without any XIC signal
+            spike_data.loc[spike_data["retention time"] < 0, "retention time"] = np.nan
 
             if RT_unit == "min":
                 spike_data["retention time"] = spike_data["retention time"] / 60
