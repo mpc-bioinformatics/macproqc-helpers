@@ -31,7 +31,7 @@ def hdf5_entry_to_mzqc_metric(hdf5_file: h5py.File, key: str) -> qc.QualityMetri
     # split the key (i.e. name of table in hdf) to get the basic accession and short name
     split_key = key.split("!")
 
-    print(f"Splitted key: {split_key} (original key: {key})")
+    print(f"Split key: {split_key} (original key: {key})")
 
     metric_accession = split_key[0].strip()
     # possible attributes: 'qc_description', 'qc_name', 'qc_short_name', 'unit_accession', 'unit_name'

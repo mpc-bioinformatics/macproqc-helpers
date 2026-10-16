@@ -44,7 +44,7 @@ def collect(args: argparse.Namespace) -> None:
     # load spike_ins
     comment_to_data = dict()
     with open(args.ispikeins) as in_csv_file:
-        # Read spike-ins CSV and get header indicies
+        # Read spike-ins CSV and get header indices
         csv_in = csv.reader(in_csv_file)
         header = next(csv_in)
         name_idx = header.index("name")

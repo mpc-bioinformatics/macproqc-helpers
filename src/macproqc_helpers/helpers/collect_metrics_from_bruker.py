@@ -90,7 +90,7 @@ def get_calibrant_info(
         calibrant_lower_mz:calibrant_upper_mz,
     ]
 
-    # Get the rows, which have the higest intensity for each retention time for the calibrant within a specific mz and mobility tolerance.
+    # Get the rows, which have the highest intensity for each retention time for the calibrant within a specific mz and mobility tolerance.
     calibrant_values = calibrant_values.loc[
         calibrant_values[["rt_values", "intensity_values"]]
         .groupby("rt_values")

@@ -38,7 +38,7 @@ def collect(args: argparse.Namespace) -> None:
 
 
 def parse_peptide_infos(pia_peptide_csv: str, out_hdf5: h5py.File) -> None:
-    # needs the PIA peptides.csv output file and counts PEPTIDE occurences
+    # needs the PIA peptides.csv output file and counts PEPTIDE occurrences
     # peptides are already filtered for FDR and decoys by the PIA export
     with open(pia_peptide_csv) as f:
         text = "\n".join(
