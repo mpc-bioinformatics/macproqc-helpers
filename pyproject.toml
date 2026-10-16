@@ -57,7 +57,6 @@ macproqc-helpers = "macproqc_helpers.cli:main"
 line-length = 100
 target-version = "py38"
 src = ["src", "tests"]
-extend-exclude = ["src/macproqc_helpers/helpers/collect_metrics_from_pia_outpur.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
@@ -70,7 +69,6 @@ python-version = "3.11"
 
 [tool.ty.src]
 include = ["src", "tests"]
-exclude = ["src/macproqc_helpers/helpers/collect_metrics_from_pia_outpur.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
