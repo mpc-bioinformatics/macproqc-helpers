@@ -7,7 +7,7 @@ import h5py
 def argparse_setup(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         "combine-hdf5",
-        description="Combine multiple HDF5 files into one. The files should be in the same format (e.g. all mzQC or all McQuaC output).",
+        description="Combine multiple HDF5 files into one. The files should be in the same format (e.g. all mzQC or all macproqc output).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-hdf_out_name", help="The output of the combined HDF5 files")
@@ -27,7 +27,8 @@ def check_if_file_exists(s: str):
 
 def combine(args: argparse.Namespace) -> None:
     with h5py.File(args.hdf_out_name, "w") as out_h5:
-        for hdf in args.files:
+        # sort input files to make finished HDF5 files hash-value comparable
+        for hdf in sorted(args.files, key=os.path.basename):
             with h5py.File(hdf, "r") as in_h5:
                 for obj in in_h5:
                     in_h5.copy(obj, out_h5)

@@ -42,7 +42,7 @@ def create(args: argparse.Namespace):
     seq_to_data: Dict[str, Dict[str, Any]] = dict()
 
     with open(args.icsv, encoding="utf-8") as in_csv_file:
-        # Read spike-ins CSV and get header indicies
+        # Read spike-ins CSV and get header indices
         csv_in = csv.reader(in_csv_file)
         header = next(csv_in)
         name_idx = header.index("name")

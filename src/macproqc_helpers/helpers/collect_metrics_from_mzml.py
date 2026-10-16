@@ -251,7 +251,7 @@ def collect(args: argparse.Namespace) -> None:
         prec_charge_list = [
             num_ms2_prec_charges[i] / num_ms2_spectra for i in range(1, report_up_to_charge + 1)
         ]
-        ### for now, unknown charge states are reported as 0 (altough it is not mentioned in the ontology)
+        ### for now, unknown charge states are reported as 0 (although it is not mentioned in the ontology)
         prec_charge_list = [prec_unknown] + prec_charge_list + [precz_more / num_ms2_spectra]
         mzhdf5.add_table_to_hdf5(
             f=out_h5,

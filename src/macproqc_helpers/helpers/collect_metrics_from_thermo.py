@@ -183,9 +183,9 @@ def collect(args: argparse.Namespace) -> None:
             raw_file.select_instrument(Device.Analog, i)
             label = raw_file.get_instrument_data().axis_label_y
 
-            # Check if it is the pump_preasure, which we want to extract
+            # Check if it is the pump_pressure, which we want to extract
             if label in ("Pump_Pressure bar", "NC_Pump_Pressure bar"):
-                # This works for QexHF, QeXI and FLI (NC_Pump_Pressure) and EX, EXI and EXII (Pump_Preasure)
+                # This works for QexHF, QeXI and FLI (NC_Pump_Pressure) and EX, EXI and EXII (Pump_Pressure)
                 data = raw_file.get_chromatogram_data([settings], 1, -1)
                 pump_pressure_dict["pump_pressure_bar_y_axis"] = list(data.intensities_array[0])
                 pump_pressure_dict["pump_pressure_bar_x_axis"] = list(data.positions_array[0])

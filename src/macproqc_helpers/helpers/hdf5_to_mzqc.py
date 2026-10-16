@@ -20,7 +20,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         description="Convert HDF5 files to mzQC format.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-hdf5", help="Path to the hdf5 file created by McQuaC", required=True)
+    parser.add_argument("-hdf5", help="Path to the hdf5 file created by macproqc", required=True)
     parser.add_argument("-mzqc_out", help="Output path for the generated mzQC file", required=True)
     parser.set_defaults(func=convert)
 
@@ -31,7 +31,7 @@ def hdf5_entry_to_mzqc_metric(hdf5_file: h5py.File, key: str) -> qc.QualityMetri
     # split the key (i.e. name of table in hdf) to get the basic accession and short name
     split_key = key.split("!")
 
-    print(f"Splitted key: {split_key} (original key: {key})")
+    print(f"Split key: {split_key} (original key: {key})")
 
     metric_accession = split_key[0].strip()
     # possible attributes: 'qc_description', 'qc_name', 'qc_short_name', 'unit_accession', 'unit_name'
@@ -157,7 +157,7 @@ def convert(args: argparse.Namespace) -> None:
     # TODO: and should add information about the feature detection as well
     # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
 
-    # TODO: and about MCQuaC itself
+    # TODO: and about macproqc itself
     # anso_nb = qc.AnalysisSoftware(version="0.1.2.3", uri="file:///mylocal/jupyter/host")
 
     # create one mzQC file per HDF5 file

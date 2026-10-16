@@ -99,6 +99,7 @@ from macproqc_helpers.helpers.visualization_tables import (
     build_filename_column,
     build_single_value_column,
     relabel_category_extremes,
+    zero_fill_present_files,
 )
 
 logger = logging.getLogger(__name__)
@@ -142,6 +143,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
     parser.add_argument(
         "-RT_unit",
         help="Unit of the retention time, either sec for seconds or min for minutes.",
+        choices=["sec", "min"],
         default="sec",
     )
     parser.add_argument(
@@ -261,9 +263,12 @@ def _process_group_metrics(
     metric name -> column-DataFrame, not yet concatenated/ordered; the
     caller assembles the final tables via `_assemble_table`.
     """
-    # For these metrics, the PCA feature columns use `relabel_category_extremes`
-    # (category_col, replace_zero_with) on top of the raw per-file data, while
-    # `00_table_summary` uses the raw values unchanged.
+    # The category-fraction metrics (one column per category). For these, the PCA
+    # feature columns use `relabel_category_extremes` (category_col, replace_zero_with)
+    # on top of the raw per-file data, and categories missing in a file that has the
+    # metric are zero-filled (see `zero_fill_present_files`), while `00_table_summary`
+    # uses the raw values unchanged. Only metrics listed here get zero-filled, any
+    # other (e.g. time-series) metric keeps its NaN values.
     pca_category_relabel = {
         "MS2_prec_charge_fraction": ("charge state", "Unknown"),
         "PSM_charge_fractions": ("charge state", None),
@@ -388,7 +393,7 @@ def _process_group_metrics(
             ),
         ),
         (
-            "Calibrants",
+            "bruker_calibrants",
             lambda data: _run_figure_step("fig17", plot_bruker_calibrants, data, args, output_path),
         ),
     ]
@@ -489,6 +494,11 @@ def _process_group_metrics(
                     )
                     pca_col_frame = pd.DataFrame({metric: [np.nan] * len(hdf5_file_names)})
 
+            if metric in pca_category_relabel:
+                # a category missing in a file that HAS the metric really is 0 (e.g. no
+                # charge-5 precursors); only files lacking the metric entirely stay NaN
+                pca_col_frame = zero_fill_present_files(pca_col_frame, hdf5_file_names, data)
+
             if metric in pca_raw_metrics:
                 pca_raw_columns[metric] = pca_col_frame
             if metric in pca_all_metrics:
@@ -547,9 +557,9 @@ def visualize(args: argparse.Namespace) -> None:
 
     if thermo_files and bruker_files:
         logger.warning(
-            "You have files from both Thermo and Bruker machines. Direct comparison is not possible, no plots will be created."
+            "You have files from both Thermo and Bruker machines. Vendor-specific metrics will be NA "
+            "for files lacking them, and the PCA only uses features present in all files."
         )
-        sys.exit(0)
 
     hdf5_files = [f for f in args.hdf5_files if f not in empty_files]
     if not hdf5_files:
@@ -719,12 +729,10 @@ def visualize(args: argparse.Namespace) -> None:
         output_path,
         "fig12a_PCA_all",
         "fig12b_Loadings_all",
-        "fig12c_table_loadings_raw",
+        "fig12c_table_loadings_all",
     )
 
     ##########################################################################################
     ### fig13/fig16: large, per-file-streamed figures - not part of the group-metric pass above
     _run_figure_step("fig13", plot_ms1_maps, hdf5_files, registry, args, output_path)
-    _run_figure_step(
-        "fig16", plot_additional_headers, hdf5_files, hdf5_file_names, registry, args, output_path
-    )
+    _run_figure_step("fig16", plot_additional_headers, hdf5_files, registry, args, output_path)

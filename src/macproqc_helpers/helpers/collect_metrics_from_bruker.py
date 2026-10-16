@@ -90,14 +90,15 @@ def get_calibrant_info(
         calibrant_lower_mz:calibrant_upper_mz,
     ]
 
-    # Get the rows, which have the higest intensity for each retention time for the calibrant within a specific mz and mobility tolerance.
+    # Get the rows, which have the highest intensity for each retention time for the calibrant within a specific mz and mobility tolerance.
     calibrant_values = calibrant_values.loc[
         calibrant_values[["rt_values", "intensity_values"]]
         .groupby("rt_values")
         .idxmax()["intensity_values"]
     ]
 
-    calibrant_values_rts = np.array(calibrant_values.index)
+    # retention times in seconds
+    calibrant_values_rts = np.array(calibrant_values["rt_values"])
     calibrant_values_mzs = np.array(calibrant_values["mz_values"])
     calibrant_values_mobilities = np.array(calibrant_values["mobility_values"])
 
@@ -266,7 +267,7 @@ def extract(args: argparse.Namespace) -> None:
 
             mzhdf5.add_table_to_hdf5(
                 f=out_h5,
-                qc_acc="BRUKE_calibrants",
+                qc_acc="BRUKER_calibrants",
                 qc_short_name="bruker_calibrants",
                 qc_name="Bruker calibrant information",
                 qc_description=(
