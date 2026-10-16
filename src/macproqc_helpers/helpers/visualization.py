@@ -735,6 +735,4 @@ def visualize(args: argparse.Namespace) -> None:
     ##########################################################################################
     ### fig13/fig16: large, per-file-streamed figures - not part of the group-metric pass above
     _run_figure_step("fig13", plot_ms1_maps, hdf5_files, registry, args, output_path)
-    _run_figure_step(
-        "fig16", plot_additional_headers, hdf5_files, hdf5_file_names, registry, args, output_path
-    )
+    _run_figure_step("fig16", plot_additional_headers, hdf5_files, registry, args, output_path)
