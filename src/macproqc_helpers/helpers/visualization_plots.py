@@ -475,14 +475,21 @@ def plot_psm_ppm_error_boxplot(
 
     df_pl15 = pd.DataFrame(rows)
 
+    # attach mean/sigma by filename, so they stay aligned with the files that have quartiles
+    stat_cols = [
+        c
+        for c in ("filtered_psms_ppm_error_mean", "filtered_psms_ppm_error_sigma")
+        if c in single_values.columns
+    ]
+    df_pl15 = df_pl15.merge(single_values[["filename"] + stat_cols], on="filename", how="left")
     mean_vals = (
-        single_values[["filtered_psms_ppm_error_mean"]].values
-        if "filtered_psms_ppm_error_mean" in single_values.columns
+        df_pl15["filtered_psms_ppm_error_mean"]
+        if "filtered_psms_ppm_error_mean" in df_pl15.columns
         else None
     )
     sd_vals = (
-        single_values[["filtered_psms_ppm_error_sigma"]].values
-        if "filtered_psms_ppm_error_sigma" in single_values.columns
+        df_pl15["filtered_psms_ppm_error_sigma"]
+        if "filtered_psms_ppm_error_sigma" in df_pl15.columns
         else None
     )
 
@@ -506,7 +513,6 @@ def plot_psm_ppm_error_boxplot(
 
 def plot_additional_headers(
     hdf5_paths: List[str],
-    hdf5_file_names: List[str],
     registry: Dict[str, dict],
     args: argparse.Namespace,
     output_path: str,
@@ -576,7 +582,8 @@ def plot_additional_headers(
         save_figure(fig, output_path, placeholder_basename, args)
         return
 
-    skip_headers = set(time_headers) | {"MsMsType", "Scan_msLevel"}
+    # "Id" is the Bruker frame number, not a measured value
+    skip_headers = set(time_headers) | {"Id", "MsMsType", "Scan_msLevel"}
     plot_headers = sorted(h for h in all_headers if h not in skip_headers)
     ms1_filtered_headers = {
         "EXTRA_Ion Injection Time (ms)",
@@ -678,11 +685,9 @@ def plot_bruker_calibrants(
             mz_tmp = row["calibrant_mz"]
             mobility_tmp = row["calibrant_mobility"]
 
-            # rt is given in milliseconds here, convert to seconds or minutes
-            if args.RT_unit == "sec":
-                df_tmp["observed_calibrant_rt"] = df_tmp["observed_calibrant_rt"] / 1000
-            elif args.RT_unit == "min":
-                df_tmp["observed_calibrant_rt"] = df_tmp["observed_calibrant_rt"] / 60000
+            # rt is given in seconds here, convert to minutes if necessary
+            if args.RT_unit == "min":
+                df_tmp["observed_calibrant_rt"] = df_tmp["observed_calibrant_rt"] / 60
 
             title_tmp = f"Calibrant {i} m/z: {mz_tmp}, ion mobility: {mobility_tmp}"
 
