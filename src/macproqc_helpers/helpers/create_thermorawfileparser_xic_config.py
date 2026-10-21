@@ -18,11 +18,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         help="Create a JSON file to be used with the ThermoRawFileParser or alphatims XIC extraction",
     )
 
-    parser.add_argument(
-        "-icsv",
-        required=True,
-        help="The CSV-table defining the spike ins"
-    )
+    parser.add_argument("-icsv", required=True, help="The CSV-table defining the spike ins")
     parser.add_argument(
         "-iidents",
         required=False,
@@ -79,7 +75,9 @@ def create(args: argparse.Namespace):
                 "mz": float(row[mz_idx]),
                 "tolerance": float(row[mz_tol_idx]),
                 "tolerance_unit": str(row[mz_tol_unit_idx]),
-                "rt_start": max(0, (float(row[rt_idx]) / 60.0) - rt_tol) if (float(row[rt_idx]) >= 0) else -1,
+                "rt_start": max(0, (float(row[rt_idx]) / 60.0) - rt_tol)
+                if (float(row[rt_idx]) >= 0)
+                else -1,
                 "rt_end": (float(row[rt_idx]) / 60.0) + rt_tol if (float(row[rt_idx]) >= 0) else -1,
                 "rt_tol": rt_tol,
             }
@@ -101,7 +99,9 @@ def create(args: argparse.Namespace):
                     # Get Header Line
                     if line.startswith("MTD"):
                         cols = line.split("\t")
-                        if cols[1].startswith("psm_search_engine_score") and ("MS:1002257" in cols[2]):
+                        if cols[1].startswith("psm_search_engine_score") and (
+                            "MS:1002257" in cols[2]
+                        ):
                             # this is the "comet expression" score, remove the "psm_" prefix
                             score_label = cols[1][4:]
                     elif line.startswith("PSH"):
@@ -128,7 +128,7 @@ def create(args: argparse.Namespace):
             new_rt = mean(set(vals)) / 60
 
             # and as new tolerance the maximum of the given or the half diff between ID RTs (-> including all IDs)
-            new_tol = max((max(vals) - min(vals))/120, seq_to_data[seq]["rt_tol"])
+            new_tol = max((max(vals) - min(vals)) / 120, seq_to_data[seq]["rt_tol"])
 
             seq_to_data[seq]["rt_start"] = new_rt - new_tol
             seq_to_data[seq]["rt_end"] = new_rt + new_tol
@@ -141,7 +141,7 @@ def create(args: argparse.Namespace):
         else:
             data["rt_start"] = max(0, data["rt_start"])
 
-        del(data["rt_tol"])
+        del data["rt_tol"]
 
     # Write Output JSON-File
     with open(args.ojson, "w", encoding="utf-8") as o_json:
