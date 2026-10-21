@@ -133,8 +133,6 @@ def create(args: argparse.Namespace):
             seq_to_data[seq]["rt_start"] = new_rt - new_tol
             seq_to_data[seq]["rt_end"] = new_rt + new_tol
 
-            print(f"found and adjust id {seq}: {seq_to_data[seq]}")
-
     for _seq, data in seq_to_data.items():
         # if no ID was found and none given (rt_start < 0), measure from 0 to 9999
         if data["rt_start"] < 0:
