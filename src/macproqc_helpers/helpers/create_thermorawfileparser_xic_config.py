@@ -102,7 +102,7 @@ def create(args: argparse.Namespace):
                         if cols[1].startswith("psm_search_engine_score") and (
                             "MS:1002257" in cols[2]
                         ):
-                            # this is the "comet expression" score, remove the "psm_" prefix
+                            # this is the "Comet:expectation value" score, remove the "psm_" prefix
                             score_label = cols[1][4:]
                     elif line.startswith("PSH"):
                         cols = line.split("\t")
@@ -115,7 +115,7 @@ def create(args: argparse.Namespace):
                     if line.startswith("PSM"):
                         cols = line.split("\t")
                         if cols[seq_idx] in seq_to_data:
-                            if score_idx < 1 or float(cols[score_idx]) < 0.01:
+                            if score_idx > 1 and float(cols[score_idx]) < 0.01:
                                 # either cannot filter for score or it is below 0.01
                                 if cols[seq_idx] not in found_rts:
                                     found_rts[cols[seq_idx]] = []
