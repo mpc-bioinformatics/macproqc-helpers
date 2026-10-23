@@ -1,0 +1,36 @@
+MTD	mzTab-version	1.0
+MTD	mzTab-mode	Complete
+MTD	mzTab-type	Identification
+MTD	title	PIA export of LFQ_Orbitrap_DDA_Human_01-unlabelled2.pia.xml
+MTD	description	PIA export of LFQ_Orbitrap_DDA_Human_01-unlabelled2.pia.xml
+MTD	sample_processing[1]	[PSI-MS, MS:1001251, Trypsin, ]
+MTD	software[1]	[MS, MS:1002251, Comet, 2026.01 rev. 1 (e4f767c)]
+MTD	software[1]-setting[1]	fragment search tolerance plus value = 0.010000 dalton
+MTD	software[1]-setting[2]	fragment search tolerance minus value = 0.010000 dalton
+MTD	software[1]-setting[3]	parent search tolerance plus value = -10.000000 parts per million
+MTD	software[1]-setting[4]	parent search tolerance minus value = 10.000000 parts per million
+MTD	software[2]	[MS, MS:1002387, PIA, 1.5.9]
+MTD	software[2]-setting[1]	mzTab export of PSMs for file 1
+MTD	software[2]-setting[2]	PSM-level FDRScore was calculated for file 1
+MTD	software[2]-setting[3]	base score for FDR calculation for file 1 = comet_expectation
+MTD	software[2]-setting[4]	applied filter psm_score_filter (PSM FDRScore) less_equal 0.01
+MTD	software[2]-setting[5]	applied filter psm_accessions_filter not regex_only DECOY_.*
+MTD	psm_search_engine_score[1]	[MS, MS:1001121, number of matched peaks, ]
+MTD	psm_search_engine_score[2]	[MS, MS:1002252, Comet:xcorr, ]
+MTD	psm_search_engine_score[3]	[MS, MS:1002253, Comet:deltacn, ]
+MTD	psm_search_engine_score[4]	[MS, MS:1002255, Comet:spscore, ]
+MTD	psm_search_engine_score[5]	[MS, MS:1002256, Comet:sprank, ]
+MTD	psm_search_engine_score[6]	[MS, MS:1002257, Comet:expectation value, ]
+MTD	psm_search_engine_score[7]	[MS, MS:1002355, PSM-level FDRScore, ]
+MTD	fixed_mod[1]	[UNIMOD, UNIMOD:4, Carbamidomethyl, ]
+MTD	fixed_mod[1]-site	C
+MTD	variable_mod[1]	[UNIMOD, UNIMOD:35, Oxidation, ]
+MTD	variable_mod[1]-site	M
+MTD	ms_run[1]-format	[PSI-MS, MS:1000584, mzML file, ]
+MTD	ms_run[1]-location	file:LFQ_Orbitrap_DDA_Human_01.mzML
+MTD	ms_run[1]-id_format	[PSI-MS, MS:1001530, mzML unique identifier, ]
+
+PSH	sequence	PSM_ID	accession	unique	database	database_version	search_engine	search_engine_score[1]	search_engine_score[2]	search_engine_score[3]	search_engine_score[4]	search_engine_score[5]	search_engine_score[6]	search_engine_score[7]	modifications	retention_time	charge	exp_mass_to_charge	calc_mass_to_charge	spectra_ref	pre	post	start	end	opt_global_missed_cleavages	opt_global_cv_MS:1002217_decoy_peptide	reliability
+PSM	TPVITGAPYEYR	32646	Biognosys|iRT-Kit_WR_fusion|iRT-Kit_WR_fusion	1	UP000005640_sprot_Cntmns_irt_spikes-2026_03_decoy.fasta	null	[MS, MS:1002387, PIA, 1.5.9]|[PSI-MS, MS:1002251, Comet, 2026.01 rev. 1 (e4f767c)]	14.0	2.361	0.6459	601.0	1.0	1.39E-9	4.0131249395505006E-10	null	4474.3633	2	683.8532	683.854218	ms_run[1]:67832	null	null	83	94	0	0	1
+PSM	TPVITGAPYEYR	36580	Biognosys|iRT-Kit_WR_fusion|iRT-Kit_WR_fusion	1	UP000005640_sprot_Cntmns_irt_spikes-2026_03_decoy.fasta	null	[MS, MS:1002387, PIA, 1.5.9]|[PSI-MS, MS:1002251, Comet, 2026.01 rev. 1 (e4f767c)]	11.0	2.218	0.5135	462.0	1.0	1.38E-6	3.984253537107691E-7	null	4600.8506	2	683.8532	683.854218	ms_run[1]:70539	null	null	83	94	0	0	1
+PSM	TPVITGAPYEYR	46652	Biognosys|iRT-Kit_WR_fusion|iRT-Kit_WR_fusion	1	UP000005640_sprot_Cntmns_irt_spikes-2026_03_decoy.fasta	null	[MS, MS:1002387, PIA, 1.5.9]|[PSI-MS, MS:1002251, Comet, 2026.01 rev. 1 (e4f767c)]	14.0	2.719	0.6878	686.0	1.0	5.25E-11	1.515748628247491E-11	null	4504.7568	2	683.8537	683.853718	ms_run[1]:68490	null	null	83	94	0	0	1
