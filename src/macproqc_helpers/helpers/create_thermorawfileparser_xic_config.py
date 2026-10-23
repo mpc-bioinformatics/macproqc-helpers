@@ -35,7 +35,7 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         "-id_counts_out",
         required=False,
         default=None,
-        help="Output mappings of the sequences to number of identifications, if a sequence is not listed, there was no (valid) ID in the files provided by -iidents (or the file was not given at all)",
+        help="Output mappings of the sequences to number of identifications, if a sequence is not listed, there was no (valid) ID in the files provided by -mztab (or the file was not given at all)",
     )
     parser.set_defaults(func=create)
 

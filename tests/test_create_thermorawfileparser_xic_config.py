@@ -76,11 +76,11 @@ def test_with_identifications(spikeins_csv, tmp_path):
     # GTFIIDPAAVIR has 7 PSMs, but one below threshold
     assert idents == {"YILAGVENSK": 2, "VEATFGVDESNAK": 3, "GTFIIDPAAVIR": 6}
 
-    # IDs at 630s and 690s -> centered at 11 min, given tolerance (1 min) is larger than half the spread
+    # IDs are no adjusted
     assert entries["iRT02"]["rt_start"] == pytest.approx(57.9660683333)
     assert entries["iRT02"]["rt_end"] == pytest.approx(67.9660683333)
 
-    # no initial RT given, no id
+    # no initial RT given, adjust by ID
     assert entries["iRT07-noRT"]["rt_start"] == pytest.approx(49.5150188888)
     assert entries["iRT07-noRT"]["rt_end"] == pytest.approx(69.5150188888)
 
@@ -96,7 +96,7 @@ def test_with_multiple_identification_files(spikeins_csv, tmp_path):
 
     assert idents == {"YILAGVENSK": 2, "VEATFGVDESNAK": 3, "GTFIIDPAAVIR": 6, "TPVITGAPYEYR": 3}
 
-    # IDs at 630s and 690s -> centered at 11 min, given tolerance (1 min) is larger than half the spread
+    # IDs are no adjusted
     assert entries["iRT02"]["rt_start"] == pytest.approx(57.9660683333)
     assert entries["iRT02"]["rt_end"] == pytest.approx(67.9660683333)
 
