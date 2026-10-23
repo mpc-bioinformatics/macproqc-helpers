@@ -18,21 +18,21 @@ def argparse_setup(subparsers: argparse._SubParsersAction):
         help="Create a JSON file to be used with the ThermoRawFileParser or alphatims XIC extraction",
     )
 
-    parser.add_argument("-icsv", required=True, help="The CSV-table defining the spike ins")
+    parser.add_argument("-spikeins", required=True, help="The CSV-table defining the spike ins")
     parser.add_argument(
-        "-iidents",
+        "-mztab",
         required=False,
         default=None,
         action="append",
         help="Optional identification results in mzTAB format. If given, the RTs of identified spike ins are fine-tuned. Can be given multiple times to use several files (e.g. for unlabelled and labelled searches).",
     )
     parser.add_argument(
-        "-ojson",
+        "-xic_definition_json_out",
         required=True,
         help="The output file in JSON to be used with the ThermoRawFileParser XIC extraction (or compatible)",
     )
     parser.add_argument(
-        "-oidentifications",
+        "-id_counts_out",
         required=False,
         default=None,
         help="Output mappings of the sequences to number of identifications, if a sequence is not listed, there was no (valid) ID in the files provided by -iidents (or the file was not given at all)",
@@ -47,9 +47,9 @@ def create(args: argparse.Namespace):
 
     seq_to_data: Dict[str, Dict[str, Any]] = dict()
 
-    with open(args.icsv, encoding="utf-8") as in_csv_file:
+    with open(args.spikeins, encoding="utf-8") as csv_spikeins_file:
         # Read spike-ins CSV and get header indices
-        csv_in = csv.reader(in_csv_file)
+        csv_in = csv.reader(csv_spikeins_file)
         header = next(csv_in)
         name_idx = header.index("name")
         seq_idx = header.index("sequence")
@@ -85,8 +85,8 @@ def create(args: argparse.Namespace):
     found_rts: Dict[str, List[float]] = dict()
 
     # only tune identifications if any ID data is provided
-    if args.iidents:
-        for ident_file in args.iidents:
+    if args.mztab:
+        for ident_file in args.mztab:
             with open(ident_file, encoding="utf-8") as in_ident_file:
                 # header information is reset for each mzTab file
                 seq_idx = 0
@@ -144,12 +144,12 @@ def create(args: argparse.Namespace):
         del data["rt_tol"]
 
     # Write Output JSON-File
-    with open(args.ojson, "w", encoding="utf-8") as o_json:
-        o_json.write(json.dumps([val for val in seq_to_data.values()], indent=4))
+    with open(args.xic_definition_json_out, "w", encoding="utf-8") as json_file:
+        json_file.write(json.dumps([val for val in seq_to_data.values()], indent=4))
 
     # Writes out the fine-tuned identifications file (can be empty, if none were found)
-    if args.oidentifications:
-        with open(args.oidentifications, "w", encoding="utf-8") as output_identifications:
+    if args.id_counts_out:
+        with open(args.id_counts_out, "w", encoding="utf-8") as output_identifications:
             for seq, vals in found_rts.items():
                 nr_ids = len(set(vals))
                 output_identifications.write(seq + "," + str(nr_ids) + "\n")

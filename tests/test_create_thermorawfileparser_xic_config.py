@@ -27,14 +27,14 @@ def spikeins_csv(tmp_path):
     return str(path)
 
 
-def _run_create(spikeins_csv, tmp_path, iidents=None):
+def _run_create(spikeins_csv, tmp_path, mztab=None):
     out_json = tmp_path / "out.json"
     out_idents = tmp_path / "out_idents.csv"
     args = argparse.Namespace(
-        icsv=spikeins_csv,
-        iidents=iidents,
-        ojson=str(out_json),
-        oidentifications=str(out_idents),
+        spikeins=spikeins_csv,
+        mztab=mztab,
+        xic_definition_json_out=str(out_json),
+        id_counts_out=str(out_idents),
     )
 
     # run the create_thermorawfileparser_xic_config
@@ -71,7 +71,7 @@ def test_without_identifications(spikeins_csv, tmp_path):
 
 
 def test_with_identifications(spikeins_csv, tmp_path):
-    entries, idents = _run_create(spikeins_csv, tmp_path, iidents=[str(SPIKEINS_MZTAB)])
+    entries, idents = _run_create(spikeins_csv, tmp_path, mztab=[str(SPIKEINS_MZTAB)])
 
     # GTFIIDPAAVIR has 7 PSMs, but one below threshold
     assert idents == {"YILAGVENSK": 2, "VEATFGVDESNAK": 3, "GTFIIDPAAVIR": 6}
@@ -91,7 +91,7 @@ def test_with_identifications(spikeins_csv, tmp_path):
 
 def test_with_multiple_identification_files(spikeins_csv, tmp_path):
     entries, idents = _run_create(
-        spikeins_csv, tmp_path, iidents=[str(SPIKEINS_MZTAB), str(SPIKEINS_MZTAB_2)]
+        spikeins_csv, tmp_path, mztab=[str(SPIKEINS_MZTAB), str(SPIKEINS_MZTAB_2)]
     )
 
     assert idents == {"YILAGVENSK": 2, "VEATFGVDESNAK": 3, "GTFIIDPAAVIR": 6, "TPVITGAPYEYR": 3}
