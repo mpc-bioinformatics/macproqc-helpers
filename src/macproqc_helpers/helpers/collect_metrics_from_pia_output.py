@@ -137,6 +137,8 @@ def stable_mean_std(values):
 
 
 def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bool = False):
+    unfiltered_psms = None
+
     # get header for PSM FDR Score
     with open(pia_psm_mztab) as f:
         text = "\n".join([line for line in f if line.startswith("MTD")])
@@ -226,6 +228,9 @@ def parse_psm_infos(pia_psm_mztab: str, out_hdf5: h5py.File, store_all_infos: bo
         PSM_count = 0
         charge_fractions = [0, 0, 0, 0, 0, 0]
         miss_counts = miss_counts = np.array([0, 0, 0, 0, 0], dtype=np.float64)
+
+    # no (FDR-filtered) PSMs, e.g. empty file or one with only headers
+    if PSM_count == 0:
         ppm_error = [np.nan]
 
     mzhdf5.add_entry_to_hdf5(
