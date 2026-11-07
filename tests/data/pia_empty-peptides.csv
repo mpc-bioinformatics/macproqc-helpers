@@ -1,0 +1,2 @@
+"COLS_PEPTIDE","Sequence","Accessions","nrSpectra","nrPSMSets","Missed Cleavages","best scores","score names","score shorts"
+"COLS_PSM","Sequence","Sequence","Accessions","Modifications","Decoy","Charge","m/z","deltaMass","deltaPPM","Retention time","Missed Cleavages","Source ID","Spectrum title","scores","score names","score shorts"

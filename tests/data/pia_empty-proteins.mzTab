@@ -1,0 +1,34 @@
+MTD	mzTab-version	1.0
+MTD	mzTab-mode	Summary
+MTD	mzTab-type	Identification
+MTD	title	PIA export of QEXI39923std-unlabelled.pia.xml
+MTD	description	PIA export of QEXI39923std-unlabelled.pia.xml
+MTD	sample_processing[1]	[PSI-MS, MS:1001251, Trypsin, ]
+MTD	software[1]	[MS, MS:1002251, Comet, 2026.01 rev. 1 (e4f767c)]
+MTD	software[1]-setting[1]	fragment search tolerance plus value = 0.010000 dalton
+MTD	software[1]-setting[2]	fragment search tolerance minus value = 0.010000 dalton
+MTD	software[1]-setting[3]	parent search tolerance plus value = -5.000000 parts per million
+MTD	software[1]-setting[4]	parent search tolerance minus value = 5.000000 parts per million
+MTD	software[2]	[MS, MS:1002387, PIA, 1.5.9]
+MTD	software[2]-setting[1]	modifications are NOT taken into account for peptide distinction
+MTD	software[2]-setting[2]	applied filter protein_q_value_filter less_equal 0.01
+MTD	software[2]-setting[3]	applied filter protein_accessions_filter not regex_only DECOY_.*
+MTD	protein_search_engine_score[1]	[MS, MS:1002394, PIA:protein score, ]
+MTD	psm_search_engine_score[1]	[MS, MS:1002355, PSM-level FDRScore, ]
+MTD	psm_search_engine_score[2]	[MS, MS:1001121, number of matched peaks, ]
+MTD	psm_search_engine_score[3]	[MS, MS:1002252, Comet:xcorr, ]
+MTD	psm_search_engine_score[4]	[MS, MS:1002253, Comet:deltacn, ]
+MTD	psm_search_engine_score[5]	[MS, MS:1002255, Comet:spscore, ]
+MTD	psm_search_engine_score[6]	[MS, MS:1002256, Comet:sprank, ]
+MTD	psm_search_engine_score[7]	[MS, MS:1002257, Comet:expectation value, ]
+MTD	fixed_mod[1]	[UNIMOD, UNIMOD:4, Carbamidomethyl, ]
+MTD	fixed_mod[1]-site	C
+MTD	variable_mod[1]	[UNIMOD, UNIMOD:35, Oxidation, ]
+MTD	variable_mod[1]-site	M
+MTD	ms_run[1]-format	[PSI-MS, MS:1000584, mzML file, ]
+MTD	ms_run[1]-location	file:QEXI39923std.mzML
+MTD	ms_run[1]-id_format	[PSI-MS, MS:1001530, mzML unique identifier, ]
+
+PRH	accession	description	taxid	species	database	database_version	search_engine	best_search_engine_score[1]	reliability	num_psms_ms_run[1]	num_peptides_distinct_ms_run[1]	ambiguity_members	modifications	protein_coverage	opt_global_cv_MS:1002364_protein-level_local_FDR	opt_global_cv_MS:1002373_protein_group-level_q-value	opt_global_cv_MS:1001097_distinct_peptide_sequences	opt_global_number_of_psms	opt_global_number_of_spectra
+
+PSH	sequence	PSM_ID	accession	unique	database	database_version	search_engine	search_engine_score[1]	search_engine_score[2]	search_engine_score[3]	search_engine_score[4]	search_engine_score[5]	search_engine_score[6]	search_engine_score[7]	modifications	retention_time	charge	exp_mass_to_charge	calc_mass_to_charge	spectra_ref	pre	post	start	end	opt_global_missed_cleavages	opt_global_cv_MS:1002217_decoy_peptide
