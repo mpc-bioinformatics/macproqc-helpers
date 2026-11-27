@@ -40,6 +40,7 @@ dependencies = [
     "openpyxl==3.1.5",
     "pandas==3.0.6",
     "plotly==7.1.0",
+    "pronto==2.7.4",
     "pymzqc==1.0.3",
     "pyopenms==3.6.0",
     "pyteomics==5.0.1",
@@ -52,6 +53,10 @@ dev = ["pytest>=6.0", "pytest-cov", "ruff", "ty"]
 
 [project.scripts]
 macproqc-helpers = "macproqc_helpers.cli:main"
+
+[tool.setuptools.package-data]
+# bundled PSI-MS ontology, used as fallback if the current one should or cannot be downloaded
+macproqc_helpers = ["data/*.obo"]
 
 [tool.ruff]
 line-length = 100

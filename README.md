@@ -52,6 +52,7 @@ macproqc-helpers combine-hdf5 --help
 ```bash
 python -m macproqc_helpers --help
 python -m macproqc_helpers combine-hdf5 -hdf_out_name output.hdf5 file1.hdf5 file2.hdf5
+python -m macproqc_helpers mzqc-to-hdf5 -mzqc run.mzQC -out_hdf5 run.hdf5
 ```
 
 ## Testing
