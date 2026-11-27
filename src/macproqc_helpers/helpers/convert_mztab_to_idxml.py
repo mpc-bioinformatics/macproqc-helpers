@@ -49,6 +49,6 @@ def convert(args: argparse.Namespace) -> None:
     protein_id = pyopenms.ProteinIdentification()
     protein_id.setIdentifier(run_name)
     # store() is a Python-side addon of pyopenms and missing from its type stubs
-    pyopenms.IdXMLFile().store(  # ty: ignore[unresolved-attribute]
+    pyopenms.IdXMLFile().store(  # ty: ignore[missing-attribute]
         args.out_idxml, [protein_id], pyopenms.PeptideIdentificationList(peptide_ids)
     )

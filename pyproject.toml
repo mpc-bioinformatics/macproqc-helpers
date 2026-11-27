@@ -49,7 +49,7 @@ dependencies = [
 
 
 [project.optional-dependencies]
-dev = ["pytest>=6.0", "pytest-cov", "ruff", "ty"]
+dev = ["pytest>=6.0", "pytest-cov", "ruff", "ty==0.0.112"]
 
 [project.scripts]
 macproqc-helpers = "macproqc_helpers.cli:main"
