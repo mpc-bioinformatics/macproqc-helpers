@@ -22,6 +22,7 @@ from macproqc_helpers.helpers import (
     create_thermorawfileparser_xic_config,
     extract_xic_bruker,
     hdf5_to_mzqc,
+    mzqc_to_hdf5,
     visualization,
 )
 
@@ -66,6 +67,7 @@ def create_parser() -> argparse.ArgumentParser:
     create_thermorawfileparser_xic_config.argparse_setup(subparsers)
     extract_xic_bruker.argparse_setup(subparsers)
     hdf5_to_mzqc.argparse_setup(subparsers)
+    mzqc_to_hdf5.argparse_setup(subparsers)
     visualization.argparse_setup(subparsers)
 
     return parser
